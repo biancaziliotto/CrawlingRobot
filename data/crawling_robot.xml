@@ -1,13 +1,11 @@
 <mujoco>
     <option gravity="0 0 -9.81"/>
 
-    <!-- Actuators -->
     <actuator>
         <motor joint="joint1" ctrlrange="-1 1"/>
         <motor joint="joint2" ctrlrange="-1 1"/>
     </actuator>
 
-    <!-- Asset section for textures -->
     <asset>
         <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1="0.8 0.8 0.8" rgb2="0.6 0.6 0.6"/>
         <material name="grid_material" texture="grid" texrepeat="10 10"/>
@@ -17,7 +15,6 @@
     <worldbody>
         <light name="top" pos="0 0 10"/>
 
-        <!-- Camera positioned for a better view -->
         <camera name="side_view" pos="0.3 -0.6 0.2" xyaxes="1 0 0 0 0 1"/>
 
         <body name="base" pos="0 0 0.05">

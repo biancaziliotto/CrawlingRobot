@@ -1,0 +1,2 @@
+xml_path: "data/crawling_robot.xml"
+qnet_units: [64,256,64]

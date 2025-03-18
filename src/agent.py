@@ -1,4 +1,4 @@
-import torch
+import wandb
 
 from env import Env
 from utils.q_net import QNet
@@ -22,6 +22,16 @@ class Agent:
         - Sample from environment.
         - Update Qnet.
         """
+
+        # wandb.log(
+        #     data={
+        #         "avg_episode_reward": avg_episode_reward,
+        #         "eps_len": avg_episode_len,
+        #           ...
+        #     },
+        #     step=self.epoch,
+        # )
+
         pass
 
     def eval(self):

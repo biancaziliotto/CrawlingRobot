@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import wandb
 
+import wandb
 from env import Env
 from utils.buffer import ReplayBuffer
 from utils.q_net import QNet
@@ -20,35 +20,33 @@ class Agent:
         self.env = Env(cfg)
 
         # Initialize the agent networks
-        state_dim = cfg["env"]["state_dim"]
-        action_dim = cfg["env"]["action_dim"]
+        state_dim = self.env.state_dim
+        action_dim = self.env.action_dim
 
         self.q_network = QNet(state_dim, action_dim, cfg)
         self.target_network = QNet(state_dim, action_dim, cfg)
         self.target_network.load_state_dict(self.q_network.state_dict())
 
         # Initialize the optimizer and replay buffer
-        self.optimizer = torch.optim.Adam(
-            self.q_network.parameters(), cfg["agent"]["lr"]
-        )
+        self.optimizer = torch.optim.Adam(self.q_network.parameters(), cfg.learning.lr)
 
         # Initialize the epsilon-greedy parameters
-        self.epsilon = cfg["agent"]["epsilon"]
-        self.epsilon_decay = cfg["agent"]["epsilon_decay"]
-        self.epsilon_update_steps = cfg["agent"]["epsilon_update_steps"]
-        self.epsilon_min = cfg["agent"]["epsilon_min"]
+        self.epsilon = cfg.learning.epsilon
+        self.epsilon_decay = cfg.learning.epsilon_decay
+        self.epsilon_update_steps = cfg.learning.epsilon_update_steps
+        self.epsilon_min = cfg.learning.epsilon_min
 
         # Initialize the buffer parameters
-        self.replay_buffer = ReplayBuffer(capacity=cfg["agent"]["buffer_capacity"])
-        self.warmup_steps = cfg["agent"]["warmup_steps"]
+        self.replay_buffer = ReplayBuffer(capacity=cfg.learning.buffer_capacity)
+        self.warmup_steps = cfg.learning.warmup_steps
 
         # Initialize training parameters
-        self.batch_size = cfg["agent"]["batch_size"]
-        self.gamma = cfg["agent"]["gamma"]
-        self.update_target_steps = cfg["agent"]["update_target_steps"]
+        self.batch_size = cfg.learning.batch_size
+        self.gamma = cfg.learning.gamma
+        self.update_target_steps = cfg.learning.update_target_steps
 
         # Use Double DQN or Vanilla DQN
-        self.double_dqn = cfg["agent"]["double_dqn"]
+        self.double_dqn = cfg.learning.double_dqn
 
         # Counter for updating the target network
         self.step_counter = 0
@@ -106,9 +104,10 @@ class Agent:
 
         self.optimizer.zero_grad()
         loss.backward()
+        # print(loss.item())
         self.optimizer.step()
 
-        # wandb.log({"loss": loss.item()})
+        wandb.log({"loss": loss.item()})
 
     def train(self, num_episodes):
         """
@@ -130,7 +129,8 @@ class Agent:
         """
 
         for episode in range(num_episodes):
-            state = self.env.reset()
+            self.env.reset()
+            state = self.env.compute_observations()
             done = False
             episode_reward = 0
 

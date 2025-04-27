@@ -22,15 +22,27 @@ class Env(gym.Env):
         self.mj_data = mujoco.MjData(self.mj_model)
 
         self.action_dim = self.mj_model.nu
-        self.state_dim = self.mj_model.njnt
+        self.state_dim = len(self.compute_observations())
+        self.max_steps = 20
 
         print("Environment initialized.")
         print(f"state_dim = {self.state_dim}")
         print(f"action_dim = {self.action_dim}")
 
         self.reset()
-        self._run_simulation()
+        # self._run_simulation()
 
+        return
+
+    def reset(self, seed: Optional[int] = None, options=None):
+        """
+        Initialize episode.
+        """
+        super().reset(seed=seed, options=options)
+        self.mj_data.qpos[-2:] = [-1.57, 1.57]
+        mujoco.mj_kinematics(self.mj_model, self.mj_data)
+        self.previous_pose = self._get_xpos()[1][0].copy()
+        self.curr_step = 0
         return
 
     def _run_simulation(self, num_steps=1000):
@@ -56,47 +68,20 @@ class Env(gym.Env):
     def _get_xpos(self):
         return self.mj_data.xpos
 
-    def _compute_reward(self):
-        """
-        Compute reward.
-        """
-        pass
-
     def _compute_reset(self):
         """
         Check conditions to truncate episode.
         """
         pass
 
-    def reset(self, seed: Optional[int] = None, options=None):
-        """
-        Initialize episode.
-        """
-        super().reset(seed=seed, options=options)
-        self.mj_data.qpos[-2:] = [-1.57, 1.57]
-        mujoco.mj_kinematics(self.mj_model, self.mj_data)
-        self.previous_pose = self._get_xpos()[1][0].copy()
-        self.curr_step = 0
-        return
-
-    def step(self, action):
-        """
-        Execute action and update state.
-        """
-        self.mj_data.ctrl[:] = action
-        mujoco.mj_step(self.mj_model, self.mj_data)
-        # print(self.mj_data.qpos)
-        self.curr_step += 1
-        return
-
     def compute_observations(self):
         """
         Returns
         """
         observations = []
-        observations.append(self._get_xpos().flatten())
-        observations.append(self._get_qpos().flatten())
-        observations.append(self._get_sensordata().flatten())
+        observations.extend(self._get_xpos().flatten())
+        observations.extend(self._get_qpos().flatten())
+        observations.extend(self._get_sensordata().flatten())
 
         return observations
 
@@ -120,5 +105,27 @@ class Env(gym.Env):
         Negative reward: the robot moved backward
         """
         reward = self._get_position_reward() + self._get_energy_reward(action)
-        print(reward)
         return reward
+
+    def end_episode(self):
+        done = self.curr_step > self.max_steps
+        return done
+
+    def step(self, action):
+        """
+        Execute action and update state.
+        Returns reward and observations of next state.
+        """
+
+        def decode_action(action):
+            return action
+
+        action = decode_action(action)
+        self.mj_data.ctrl[:] = action
+        mujoco.mj_step(self.mj_model, self.mj_data)
+        # print(self.mj_data.qpos)
+        self.curr_step += 1
+        obs = self.compute_observations()
+        rwd = self.compute_reward(action)
+        done = self.end_episode()
+        return obs, rwd, done

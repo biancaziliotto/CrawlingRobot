@@ -51,7 +51,7 @@ class Agent:
         self.double_dqn = cfg["agent"]["double_dqn"]
 
         # Counter for updating the target network
-        self.step_counter = 0
+        self.step_counter = 1
 
         print("Agent initialized.")
         return

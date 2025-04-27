@@ -25,7 +25,8 @@ class Env(gym.Env):
         print(self.discretized_action)
         self.action_dim = len(self.discretized_action) ^ self.mj_model.nu
         self.state_dim = len(self.compute_observations())
-        self.max_steps = 20
+        self.min_steps = 20
+        self.max_steps = 100
 
         print("Environment initialized.")
         print(f"state_dim = {self.state_dim}")
@@ -45,6 +46,7 @@ class Env(gym.Env):
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
         self.previous_pose = self._get_xpos()[1][0].copy()
         self.curr_step = 0
+        self.cum_distance = 0
         return
 
     def _run_simulation(self, num_steps=1000):
@@ -90,6 +92,7 @@ class Env(gym.Env):
     def _get_position_reward(self):
         curr_pos = self._get_xpos()[1][0]
         distance = curr_pos - self.previous_pose
+        self.cum_distance += distance
         if distance > 0:
             return self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
         else:
@@ -112,7 +115,14 @@ class Env(gym.Env):
         return rwd, {"pos_rwd": pos_rwd, "energy_rwd": energy_rwd, "rwd": rwd}
 
     def end_episode(self):
-        done = self.curr_step > self.max_steps
+        done = False
+        if (
+            self.curr_step > self.min_steps
+            and self.cum_distance < self.curr_step * 1e-2
+        ):
+            done = True
+        if self.curr_step >= self.max_steps:
+            done = True
         return done
 
     def step(self, action):

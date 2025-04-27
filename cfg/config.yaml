@@ -8,7 +8,7 @@ project: crawling_robot
 exp_name: experiment
 resume_str: null
 
-w_energy_rwd: 0.1
-w_pos_rwd: 0.9
+w_energy_rwd: 0
+w_pos_rwd: 1
 k_energy_rwd: 1
 k_pos_rwd: 1

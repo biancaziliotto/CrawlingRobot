@@ -168,7 +168,7 @@ class Agent:
                 {
                     "episode_reward": episode_reward,
                     "epsilon": self.epsilon,
-                    # "global_step": global_step,
+                    "episode_length": self.env.curr_step,
                 }
             )
 

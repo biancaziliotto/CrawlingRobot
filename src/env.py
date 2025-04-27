@@ -21,7 +21,9 @@ class Env(gym.Env):
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
 
-        self.action_dim = self.mj_model.nu
+        self.discretized_action = np.arange(-1, 1.1, 0.5)
+        print(self.discretized_action)
+        self.action_dim = len(self.discretized_action) ^ self.mj_model.nu
         self.state_dim = len(self.compute_observations())
         self.max_steps = 20
 
@@ -95,7 +97,7 @@ class Env(gym.Env):
 
     def _get_energy_reward(self, action):
         return self.cfg.w_energy_rwd * np.exp(
-            self.cfg.k_energy_rwd * np.linalg.norm(action)
+            -self.cfg.k_energy_rwd * np.linalg.norm(action)
         )
 
     def compute_reward(self, action):
@@ -104,8 +106,10 @@ class Env(gym.Env):
         Positive reward: the robot moved forward
         Negative reward: the robot moved backward
         """
-        reward = self._get_position_reward() + self._get_energy_reward(action)
-        return reward
+        pos_rwd = self._get_position_reward()
+        energy_rwd = self._get_energy_reward(action)
+        rwd = pos_rwd + energy_rwd
+        return rwd, {"pos_rwd": pos_rwd, "energy_rwd": energy_rwd, "rwd": rwd}
 
     def end_episode(self):
         done = self.curr_step > self.max_steps
@@ -118,14 +122,28 @@ class Env(gym.Env):
         """
 
         def decode_action(action):
-            return action
+            levels = len(self.discretized_action)
+            actuators = self.mj_model.nu
+
+            indices = []
+            for _ in range(actuators):
+                indices.append(action % levels)
+                action //= levels
+            indices = indices[::-1]
+
+            decoded_action = []
+            for index in indices:
+                decoded_action.append(self.discretized_action[index])
+
+            return np.array(decoded_action)
 
         action = decode_action(action)
+        # print(action)
         self.mj_data.ctrl[:] = action
         mujoco.mj_step(self.mj_model, self.mj_data)
         # print(self.mj_data.qpos)
         self.curr_step += 1
         obs = self.compute_observations()
-        rwd = self.compute_reward(action)
+        rwd, rwd_dict = self.compute_reward(action)
         done = self.end_episode()
-        return obs, rwd, done
+        return obs, rwd, done, rwd_dict

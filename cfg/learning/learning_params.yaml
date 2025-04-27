@@ -1,11 +1,11 @@
 lr: 0.1
 epsilon: 0.1
-epsilon_decay: 0.01
-epsilon_update_steps: 10
-epsilon_min: 0.01
-buffer_capacity: 1000
-warmup_steps: 100
-batch_size: 100
+epsilon_decay: 0
+epsilon_update_steps: 1
+epsilon_min: 0
+buffer_capacity: 100000
+warmup_steps: 10000
+batch_size: 10000
 gamma: 0.1
 update_target_steps: 100
 double_dqn: False

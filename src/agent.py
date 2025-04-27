@@ -137,7 +137,8 @@ class Agent:
             while not done:
                 # ---------- 1. INTERACT WITH ENV ----------
                 action = self.select_action(state)
-                next_state, reward, done = self.env.step(action)
+                next_state, reward, done, rwd_dict = self.env.step(action)
+                wandb.log(rwd_dict)
 
                 # ---------- 2. STORE TRANSITION ----------
                 self.replay_buffer.add(state, action, reward, next_state, done)
@@ -163,9 +164,13 @@ class Agent:
                     )
 
             # ---------- LOGGING ----------
-            # wandb.log({"episode_reward": episode_reward,
-            #            "epsilon": self.epsilon,
-            #            "global_step": global_step})
+            wandb.log(
+                {
+                    "episode_reward": episode_reward,
+                    "epsilon": self.epsilon,
+                    # "global_step": global_step,
+                }
+            )
 
     def select_action(self, state):
         """
@@ -191,7 +196,7 @@ class Agent:
         Update the target network with the weights of the Q-network.
         """
         self.target_network.load_state_dict(self.q_network.state_dict())
-        print("Target network updated.")
+        # print("Target network updated.")
         return
 
     def save_model(self, path):

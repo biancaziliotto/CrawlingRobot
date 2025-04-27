@@ -26,7 +26,7 @@ def main(cfg: DictConfig):
     wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
 
     agent = Agent(cfg)
-    agent.train(num_episodes=100)
+    agent.train(num_episodes=10000)
 
 
 if __name__ == "__main__":

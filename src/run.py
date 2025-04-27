@@ -1,7 +1,9 @@
+import time
+
 import hydra
-import wandb
 from omegaconf import DictConfig, OmegaConf
 
+import wandb
 from agent import Agent
 
 
@@ -12,16 +14,16 @@ from agent import Agent
 )
 def main(cfg: DictConfig):
 
-    wandb.init(
-        project=cfg.project,
-        resume=not cfg.resume_str is None,
-        id=cfg.resume_str,
-        config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False),
-    )
-    wandb.run.name = cfg.exp_name
-    wandb.run.save()
+    # wandb.init(
+    #     project=cfg.project,
+    #     resume=not cfg.resume_str is None,
+    #     id=cfg.resume_str,
+    #     config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False),
+    # )
+    # wandb.run.name = cfg.exp_name
+    # wandb.run.save()
 
-    wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
+    # wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
 
     agent = Agent(cfg)
 

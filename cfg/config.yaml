@@ -1,6 +1,14 @@
+defaults:
+- learning: learning_params
+
 xml_path: "data/crawling_robot.xml"
 qnet_units: [64,256,64]
 
 project: crawling_robot
-exp_name: experiment_0
-resume_str: None
+exp_name: experiment
+resume_str: null
+
+w_energy_rwd: 0
+w_pos_rwd: 1
+k_energy_rwd: 1
+k_pos_rwd: 1

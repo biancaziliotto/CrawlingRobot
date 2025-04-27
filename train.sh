@@ -1,1 +1,1 @@
-python src/run.py
+mjpython src/run.py

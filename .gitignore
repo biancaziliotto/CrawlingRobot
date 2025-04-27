@@ -2,3 +2,5 @@ outputs/
 __pycache__/
 poetry.lock
 wandb/
+
+MUJOCO_LOG**

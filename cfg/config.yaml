@@ -8,6 +8,8 @@ project: crawling_robot
 exp_name: experiment
 resume_str: null
 
+num_episodes: 1e5
+
 w_energy_rwd: 0
 w_pos_rwd: 1
 k_energy_rwd: 1

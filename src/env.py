@@ -22,8 +22,7 @@ class Env(gym.Env):
         self.mj_data = mujoco.MjData(self.mj_model)
 
         self.discretized_action = np.arange(-1, 1.1, 0.5)
-        print(self.discretized_action)
-        self.action_dim = len(self.discretized_action) ^ self.mj_model.nu
+        self.action_dim = len(self.discretized_action) ** self.mj_model.nu
         self.state_dim = len(self.compute_observations())
         self.min_steps = 20
         self.max_steps = 100

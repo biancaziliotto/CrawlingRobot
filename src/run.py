@@ -26,7 +26,11 @@ def main(cfg: DictConfig):
 
     agent = Agent(cfg)
 
-    agent.train(num_episodes=cfg.num_episodes)
+    agent.train(num_episodes=int(cfg.num_episodes))
+
+    agent.save_model(
+        cfg.save_path,
+    )
 
 
 if __name__ == "__main__":

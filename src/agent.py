@@ -37,7 +37,7 @@ class Agent:
         self.epsilon_min = cfg.learning.epsilon_min
 
         # Initialize the buffer parameters
-        self.replay_buffer = ReplayBuffer(capacity=cfg.learning.buffer_capacity)
+        self.replay_buffer = ReplayBuffer(capacity=int(cfg.learning.buffer_capacity))
         self.warmup_steps = cfg.learning.warmup_steps
 
         # Initialize training parameters

@@ -30,6 +30,8 @@ class Agent:
         # Initialize the optimizer and replay buffer
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), cfg.learning.lr)
 
+        self.checkpoint_frequency = cfg.learning.checkpoint_frequency
+
         # Initialize the epsilon-greedy parameters
         self.epsilon = cfg.learning.epsilon
         self.epsilon_decay = cfg.learning.epsilon_decay
@@ -37,7 +39,7 @@ class Agent:
         self.epsilon_min = cfg.learning.epsilon_min
 
         # Initialize the buffer parameters
-        self.replay_buffer = ReplayBuffer(capacity=cfg.learning.buffer_capacity)
+        self.replay_buffer = ReplayBuffer(capacity=int(cfg.learning.buffer_capacity))
         self.warmup_steps = cfg.learning.warmup_steps
 
         # Initialize training parameters
@@ -107,7 +109,7 @@ class Agent:
         # print(loss.item())
         self.optimizer.step()
 
-        wandb.log({"loss": loss.item()})
+        wandb.log({"loss": loss.item()}, step=self.step_counter)
 
     def train(self, num_episodes):
         """
@@ -138,7 +140,7 @@ class Agent:
                 # ---------- 1. INTERACT WITH ENV ----------
                 action = self.select_action(state)
                 next_state, reward, done, rwd_dict = self.env.step(action)
-                wandb.log(rwd_dict)
+                wandb.log(rwd_dict, step=self.step_counter)
 
                 # ---------- 2. STORE TRANSITION ----------
                 self.replay_buffer.add(state, action, reward, next_state, done)
@@ -151,26 +153,65 @@ class Agent:
                 if self.step_counter % self.update_target_steps == 0:
                     self.update_target_network()
 
-                # ---------- 5. HOUSEKEEPING ----------
-                state = next_state
-                episode_reward += reward
-                self.step_counter += 1
-
-                # ---------- 6. UPDATE EXPLORATION ----------
-                if self.step_counter % self.epsilon_update_steps == 0:
+                # ---------- 5. UPDATE EXPLORATION ----------
+                if (
+                    self.step_counter % self.epsilon_update_steps == 0
+                    and self.step_counter > self.warmup_steps
+                ):
                     self.epsilon = max(
                         self.epsilon_min,
                         self.epsilon * self.epsilon_decay,
                     )
 
+                # ---------- 6. HOUSEKEEPING ----------
+                wandb.log(
+                    {
+                        "epsilon": self.epsilon,
+                    },
+                    step=self.step_counter,
+                )
+                state = next_state
+                episode_reward += reward
+
+                self.step_counter += 1
+
+            if self.step_counter % self.checkpoint_frequency == 0:
+                self.save_model(
+                    f"checkpoints/model_{self.step_counter//self.checkpoint_frequency}"
+                )
+                self.load_model(
+                    f"checkpoints/model_{self.step_counter//self.checkpoint_frequency}"
+                )
+
             # ---------- LOGGING ----------
             wandb.log(
                 {
                     "episode_reward": episode_reward,
-                    "epsilon": self.epsilon,
                     "episode_length": self.env.curr_step,
+                    "episode": episode,
                 }
             )
+
+    def run_policy(self, num_episodes):
+        """
+        Can be used for evaluation or visualization.
+        """
+        for episode in range(num_episodes):
+            self.env.reset()
+            state = self.env.compute_observations()
+            done = False
+            episode_reward = 0
+
+            while not done:
+                action = self.select_action(state)
+                next_state, reward, done, rwd_dict = self.env.step(action)
+
+                state = next_state
+                episode_reward += reward
+
+                self.step_counter += 1
+
+            self.env.visualize()
 
     def select_action(self, state):
         """

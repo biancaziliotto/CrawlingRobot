@@ -13,7 +13,6 @@ from agent import Agent
     config_name="config",
 )
 def main(cfg: DictConfig):
-
     wandb.init(
         project=cfg.project,
         resume=not cfg.resume_str is None,
@@ -26,7 +25,12 @@ def main(cfg: DictConfig):
     wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
 
     agent = Agent(cfg)
-    agent.train(num_episodes=10000)
+
+    agent.train(num_episodes=int(cfg.num_episodes))
+
+    agent.save_model(
+        cfg.save_path,
+    )
 
 
 if __name__ == "__main__":

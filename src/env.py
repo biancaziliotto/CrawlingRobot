@@ -21,16 +21,17 @@ class Env(gym.Env):
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
 
-        self.discretized_action = np.arange(-1, 1.1, 0.5)
+        self.discretized_action = np.arange(-1, 1.1, 0.1)
         self.action_dim = len(self.discretized_action) ** self.mj_model.nu
         self.state_dim = len(self.compute_observations())
-        self.min_steps = 20
-        self.max_steps = 100
+        self.min_steps = 100
+        self.max_steps = 20000
 
         print("Environment initialized.")
         print(f"state_dim = {self.state_dim}")
         print(f"action_dim = {self.action_dim}")
 
+        self.episode_id = 0
         self.reset()
         # self._run_simulation()
 
@@ -41,25 +42,43 @@ class Env(gym.Env):
         Initialize episode.
         """
         super().reset(seed=seed, options=options)
-        self.mj_data.qpos[-2:] = [-1.57, 1.57]
+        self.mj_data.qpos = np.zeros(len(self.mj_data.qpos))
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
         self.previous_pose = self._get_xpos()[1][0].copy()
         self.curr_step = 0
         self.cum_distance = 0
+        self.episode = {"initial_pqos": self.mj_data.qpos, "actions": []}
+        self.episode_id += 1
         return
 
-    def _run_simulation(self, num_steps=1000):
+    def visualize(self):
         """
         Update the rendering scene.
         """
-        with mujoco.viewer.launch_passive(self.mj_model, self.mj_data) as viewer:
-            while viewer.is_running() and self.curr_step < num_steps:
-                action = np.random.rand(2)
-                self.step(action)
-                self.compute_reward(action)
-                self.previous_pose = self._get_xpos()[1][0].copy()
-                viewer.sync()
+        curr_step = 0
+        self.mj_data.qpos = self.episode["initial_pqos"]
+        mujoco.mj_kinematics(self.mj_model, self.mj_data)
+        try:
+            with mujoco.viewer.launch_passive(
+                self.mj_model, self.mj_data
+            ) as self.viewer:
+                while curr_step < len(self.episode["actions"]):
+                    action = self.episode["actions"][curr_step]
+                    self.mj_data.ctrl[:] = action
+                    mujoco.mj_step(self.mj_model, self.mj_data)
+                    self.viewer.sync()
+                    time.sleep(0.01)
+                    curr_step += 1
+                self.viewer.close()
+        except RuntimeError as e:
+            while curr_step < len(self.episode["actions"]):
+                action = self.episode["actions"][curr_step]
+                self.mj_data.ctrl[:] = action
+                mujoco.mj_step(self.mj_model, self.mj_data)
+                self.viewer.sync()
                 time.sleep(0.01)
+                curr_step += 1
+            self.viewer.close()
         return
 
     def _get_sensordata(self):
@@ -117,11 +136,12 @@ class Env(gym.Env):
         done = False
         if (
             self.curr_step > self.min_steps
-            and self.cum_distance < self.curr_step * 1e-2
+            and self.cum_distance < self.curr_step * 0.05
         ):
             done = True
         if self.curr_step >= self.max_steps:
             done = True
+
         return done
 
     def step(self, action):
@@ -134,15 +154,17 @@ class Env(gym.Env):
             levels = len(self.discretized_action)
             actuators = self.mj_model.nu
 
+            # print(action)
             indices = []
             for _ in range(actuators):
                 indices.append(action % levels)
                 action //= levels
-            indices = indices[::-1]
+            indices = indices[::-1].copy()
 
             decoded_action = []
             for index in indices:
                 decoded_action.append(self.discretized_action[index])
+            # print(decoded_action)
 
             return np.array(decoded_action)
 
@@ -155,4 +177,7 @@ class Env(gym.Env):
         obs = self.compute_observations()
         rwd, rwd_dict = self.compute_reward(action)
         done = self.end_episode()
+
+        self.episode["actions"].append(action)
+
         return obs, rwd, done, rwd_dict

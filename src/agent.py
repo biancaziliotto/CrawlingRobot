@@ -30,6 +30,8 @@ class Agent:
         # Initialize the optimizer and replay buffer
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), cfg.learning.lr)
 
+        self.checkpoint_frequency = cfg.learning.checkpoint_frequency
+
         # Initialize the epsilon-greedy parameters
         self.epsilon = cfg.learning.epsilon
         self.epsilon_decay = cfg.learning.epsilon_decay
@@ -173,6 +175,14 @@ class Agent:
 
                 self.step_counter += 1
 
+            if self.step_counter % self.checkpoint_frequency == 0:
+                self.save_model(
+                    f"checkpoints/model_{self.step_counter//self.checkpoint_frequency}"
+                )
+                self.load_model(
+                    f"checkpoints/model_{self.step_counter//self.checkpoint_frequency}"
+                )
+
             # ---------- LOGGING ----------
             wandb.log(
                 {
@@ -181,6 +191,27 @@ class Agent:
                     "episode": episode,
                 }
             )
+
+    def run_policy(self, num_episodes):
+        """
+        Can be used for evaluation or visualization.
+        """
+        for episode in range(num_episodes):
+            self.env.reset()
+            state = self.env.compute_observations()
+            done = False
+            episode_reward = 0
+
+            while not done:
+                action = self.select_action(state)
+                next_state, reward, done, rwd_dict = self.env.step(action)
+
+                state = next_state
+                episode_reward += reward
+
+                self.step_counter += 1
+
+            self.env.visualize()
 
     def select_action(self, state):
         """

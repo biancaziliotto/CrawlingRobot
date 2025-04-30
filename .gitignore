@@ -2,5 +2,6 @@ outputs/
 __pycache__/
 poetry.lock
 wandb/
+checkpoints/
 
 MUJOCO_LOG**

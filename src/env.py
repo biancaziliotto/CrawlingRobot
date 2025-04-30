@@ -21,11 +21,11 @@ class Env(gym.Env):
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
 
-        self.discretized_action = np.arange(-1, 1.1, 0.1)
+        self.discretized_action = np.arange(-0.5, 0.51, 0.2)
         self.action_dim = len(self.discretized_action) ** self.mj_model.nu
         self.state_dim = len(self.compute_observations())
-        self.min_steps = 100
-        self.max_steps = 20000
+        self.min_steps = 1000
+        self.max_steps = 100000
 
         print("Environment initialized.")
         print(f"state_dim = {self.state_dim}")
@@ -43,11 +43,14 @@ class Env(gym.Env):
         """
         super().reset(seed=seed, options=options)
         self.mj_data.qpos = np.zeros(len(self.mj_data.qpos))
+        self.mj_data.qpos[-2] = -np.random.rand(1) * 1.57 / 2
+        self.mj_data.qpos[-1] = np.random.rand(1) * 1.57 / 2 - 1.57 / 4
+        self.mj_data.xpos[0] = 0
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
         self.previous_pose = self._get_xpos()[1][0].copy()
         self.curr_step = 0
         self.cum_distance = 0
-        self.episode = {"initial_pqos": self.mj_data.qpos, "actions": []}
+        self.episode = {"initial_pqos": self.mj_data.qpos.copy(), "actions": []}
         self.episode_id += 1
         return
 
@@ -58,13 +61,15 @@ class Env(gym.Env):
         curr_step = 0
         self.mj_data.qpos = self.episode["initial_pqos"]
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
+
         try:
             with mujoco.viewer.launch_passive(
                 self.mj_model, self.mj_data
             ) as self.viewer:
+                self.viewer.sync()
+                time.sleep(1)
                 while curr_step < len(self.episode["actions"]):
                     action = self.episode["actions"][curr_step]
-                    self.mj_data.ctrl[:] = action
                     mujoco.mj_step(self.mj_model, self.mj_data)
                     self.viewer.sync()
                     time.sleep(0.01)
@@ -110,6 +115,7 @@ class Env(gym.Env):
     def _get_position_reward(self):
         curr_pos = self._get_xpos()[1][0]
         distance = curr_pos - self.previous_pose
+        self.previous_pose = curr_pos.copy()
         self.cum_distance += distance
         if distance > 0:
             return self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
@@ -134,10 +140,7 @@ class Env(gym.Env):
 
     def end_episode(self):
         done = False
-        if (
-            self.curr_step > self.min_steps
-            and self.cum_distance < self.curr_step * 0.05
-        ):
+        if self.curr_step > self.min_steps and self.cum_distance < self.curr_step * 0.1:
             done = True
         if self.curr_step >= self.max_steps:
             done = True

@@ -175,13 +175,13 @@ class Agent:
 
                 self.step_counter += 1
 
-            if self.step_counter % self.checkpoint_frequency == 0:
-                self.save_model(
-                    f"checkpoints/model_{self.step_counter//self.checkpoint_frequency}"
-                )
-                self.load_model(
-                    f"checkpoints/model_{self.step_counter//self.checkpoint_frequency}"
-                )
+                if self.step_counter % self.checkpoint_frequency == 0:
+                    self.save_model(
+                        f"checkpoints/model_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
+                    )
+                    self.load_model(
+                        f"checkpoints/model_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
+                    )
 
             # ---------- LOGGING ----------
             wandb.log(

@@ -183,6 +183,7 @@ class Agent:
                         f"checkpoints/model_{self.env.mode}_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
                     )
 
+            # print(f"reward {episode_reward}")
             # ---------- LOGGING ----------
             # wandb.log(
             #     {
@@ -211,6 +212,8 @@ class Agent:
 
                 self.step_counter += 1
 
+            print(rwd_dict)
+            print(f"reward {episode_reward}")
             self.env.visualize()
 
     def select_action(self, state):

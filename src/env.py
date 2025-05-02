@@ -21,12 +21,12 @@ class Env(gym.Env):
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
         self.mode = self.cfg.mode
-        self.discretized_action = np.arange(-0.9, 0.91, 0.45)
+        self.discretized_action = np.arange(-0.99, 1, 0.11)
         self.action_dim = len(self.discretized_action) ** self.mj_model.nu
         self.episode_id = 0
         self.reset()
         self.state_dim = len(self.compute_observations())
-        self.min_steps = 5000
+        self.min_steps = 2500
         self.max_steps = 100000
 
         print("Environment initialized.")

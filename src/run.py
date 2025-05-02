@@ -16,6 +16,7 @@ def main(cfg: DictConfig):
 
     agent = Agent(cfg)
 
+    # agent.load_model("checkpoints/model_forward_3.ckpt")
     # agent.load_model("checkpoints/model_forward_25.ckpt")
     # agent.load_model("checkpoints/model_backward_10.ckpt")
     # agent.run_policy(10)

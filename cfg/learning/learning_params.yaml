@@ -1,10 +1,10 @@
 lr: 1e-4
-epsilon: 1
-epsilon_decay: 0.9999
+epsilon: 0.5
+epsilon_decay: 0.9995
 epsilon_update_steps: 100
-epsilon_min: 0.01
-buffer_capacity: 1e5
-warmup_steps: 1e4
+epsilon_min: 0.001
+buffer_capacity: 5e5
+warmup_steps: 1e5
 batch_size: 32
 gamma: 0.99
 checkpoint_frequency: 1e5

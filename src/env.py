@@ -20,19 +20,19 @@ class Env(gym.Env):
         self.render_mode = "human"
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
-
-        self.discretized_action = np.arange(-0.5, 0.51, 0.2)
+        self.mode = self.cfg.mode
+        self.discretized_action = np.arange(-0.9, 0.91, 0.45)
         self.action_dim = len(self.discretized_action) ** self.mj_model.nu
+        self.episode_id = 0
+        self.reset()
         self.state_dim = len(self.compute_observations())
-        self.min_steps = 1000
+        self.min_steps = 5000
         self.max_steps = 100000
 
         print("Environment initialized.")
         print(f"state_dim = {self.state_dim}")
         print(f"action_dim = {self.action_dim}")
 
-        self.episode_id = 0
-        self.reset()
         # self._run_simulation()
 
         return
@@ -48,6 +48,7 @@ class Env(gym.Env):
         self.mj_data.xpos[0] = 0
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
         self.previous_pose = self._get_xpos()[1][0].copy()
+        self.previous_action = [0, 0]
         self.curr_step = 0
         self.cum_distance = 0
         self.episode = {"initial_pqos": self.mj_data.qpos.copy(), "actions": []}
@@ -62,20 +63,9 @@ class Env(gym.Env):
         self.mj_data.qpos = self.episode["initial_pqos"]
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
 
-        try:
-            with mujoco.viewer.launch_passive(
-                self.mj_model, self.mj_data
-            ) as self.viewer:
-                self.viewer.sync()
-                time.sleep(1)
-                while curr_step < len(self.episode["actions"]):
-                    action = self.episode["actions"][curr_step]
-                    mujoco.mj_step(self.mj_model, self.mj_data)
-                    self.viewer.sync()
-                    time.sleep(0.01)
-                    curr_step += 1
-                self.viewer.close()
-        except RuntimeError as e:
+        with mujoco.viewer.launch_passive(self.mj_model, self.mj_data) as self.viewer:
+            self.viewer.sync()
+            time.sleep(1)
             while curr_step < len(self.episode["actions"]):
                 action = self.episode["actions"][curr_step]
                 self.mj_data.ctrl[:] = action
@@ -109,6 +99,7 @@ class Env(gym.Env):
         observations.extend(self._get_xpos().flatten())
         observations.extend(self._get_qpos().flatten())
         observations.extend(self._get_sensordata().flatten())
+        observations.extend(self.previous_action)
 
         return observations
 
@@ -117,14 +108,22 @@ class Env(gym.Env):
         distance = curr_pos - self.previous_pose
         self.previous_pose = curr_pos.copy()
         self.cum_distance += distance
-        if distance > 0:
-            return self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
+        # print(f"distance {distance}")
+        if (distance > 0 and self.mode == "forward") or (
+            distance < 0 and self.mode == "backward"
+        ):
+            rwd = self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * abs(distance)))
         else:
-            return 0
+            rwd = self.cfg.w_pos_rwd * (
+                -1 + np.exp(-self.cfg.k_pos_rwd * abs(distance))
+            )
+
+        # print(f"rwd {rwd}")
+        return rwd
 
     def _get_energy_reward(self, action):
         return self.cfg.w_energy_rwd * np.exp(
-            -self.cfg.k_energy_rwd * np.linalg.norm(action)
+            -self.cfg.k_energy_rwd * np.linalg.norm(action - self.previous_action)
         )
 
     def compute_reward(self, action):
@@ -140,10 +139,25 @@ class Env(gym.Env):
 
     def end_episode(self):
         done = False
-        if self.curr_step > self.min_steps and self.cum_distance < self.curr_step * 0.1:
+        if (
+            self.curr_step > self.min_steps
+            and self.cum_distance < self.curr_step * 0.0002
+            and self.mode == "forward"
+        ):
             done = True
+            print(f"{self.cum_distance} in {self.curr_step} steps")
+        elif (
+            self.curr_step > self.min_steps
+            and self.cum_distance > -self.curr_step * 0.0002
+            and self.mode == "backward"
+        ):
+            done = True
+            print(self.cum_distance)
+            print(f"{self.cum_distance} in {self.curr_step} steps")
         if self.curr_step >= self.max_steps:
             done = True
+            print(self.cum_distance)
+            print(f"{self.cum_distance} in {self.curr_step} steps")
 
         return done
 
@@ -179,6 +193,7 @@ class Env(gym.Env):
         self.curr_step += 1
         obs = self.compute_observations()
         rwd, rwd_dict = self.compute_reward(action)
+        self.previous_action = action
         done = self.end_episode()
 
         self.episode["actions"].append(action)

@@ -1,6 +1,11 @@
 <mujoco>
     <option gravity="0 0 -9.81" timestep="0.002" solver="PGS" iterations="50"/>
 
+    <contact>
+        <pair geom1="base_geom" geom2="link1_geom" condim="3"/>
+        <pair geom1="base_geom" geom2="link2_geom" condim="3"/>
+    </contact>
+
     <actuator>
         <motor joint="joint1" ctrlrange="-1 1"/>
         <motor joint="joint2" ctrlrange="-1 1"/>
@@ -9,7 +14,36 @@
     <sensor>
         <frameangvel name="link1_vel" objtype="body" objname="link1"/>
         <frameangvel name="link2_vel" objtype="body" objname="link2"/>
-        <touch name="floor_touch" site="link2_endpoint"/>
+
+        <touch name="floor_touch_1" site="corner1"/>
+        <touch name="floor_touch_2" site="corner2"/>
+        <touch name="floor_touch_3" site="corner3"/>
+        <touch name="floor_touch_4" site="corner4"/>
+        <touch name="floor_touch_5" site="corner5"/>
+        <touch name="floor_touch_6" site="corner6"/>
+        <touch name="floor_touch_7" site="corner7"/>
+        <touch name="floor_touch_8" site="corner8"/>
+
+        <touch name="floor_touch_knee" site="knee"/>
+
+        <touch name="floor_touch_1_b" site="b_corner1"/>
+        <touch name="floor_touch_2_b" site="b_corner2"/>
+        <touch name="floor_touch_3_b" site="b_corner3"/>
+        <touch name="floor_touch_4_b" site="b_corner4"/>
+        <touch name="floor_touch_5_b" site="b_corner5"/>
+        <touch name="floor_touch_6_b" site="b_corner6"/>
+        <touch name="floor_touch_7_b" site="b_corner7"/>
+        <touch name="floor_touch_8_b" site="b_corner8"/>
+        <!-- <touch name="base_back_center" site="base_back_center"/>
+        <touch name="base_back_x+" site="base_back_x+"/>
+        <touch name="base_back_x-" site="base_back_x-"/>
+        <touch name="base_back_z+" site="base_back_z+"/>
+        <touch name="base_back_z-" site="base_back_z-"/>
+        <touch name="base_front_center" site="base_front_center"/>
+        <touch name="base_front_x+" site="base_front_x+"/>
+        <touch name="base_front_x-" site="base_front_x-"/>
+        <touch name="base_front_z+" site="base_front_z+"/>
+        <touch name="base_front_z-" site="base_front_z-"/> -->
     </sensor>
 
     <asset>
@@ -23,30 +57,64 @@
         <camera name="side_view" pos="0.3 -0.6 0.2" xyaxes="1 0 0 0 0 1"/>
 
         <body name="base" pos="0 0 0.05">
-            <geom name="base_geom" type="box" size="0.05 0.05 0.05" rgba="1 0 0 1" mass="0.1" contype="1" conaffinity="1"/>
+            <!-- <geom name="base_geom" type="sphere" size="0.05" rgba="1 0 0 1" mass="0.5" contype="1" solimp="0.95 0.99 0.001" solref="0.002 1" friction="0.1 0.3 0.5"/> -->
+            <!-- <geom name="base_geom" type="cylinder" size="0.05 0.05" quat="0 0 0.707 0.707" rgba="1 0 0 1" mass="1" contype="1" conaffinity="1" solimp="0.95 0.99 0.001" solref="0.002 1" friction="0.1 0.3 0.5"/> -->
+            <geom name="base_geom" type="box" size="0.05 0.05 0.05" rgba="1 0 0 1" mass="0.2" contype="1" solimp="0.9 0.99 0.001" solref="0.002 1" friction="0.001 0.01 0.01"/>
+
+            <site name="b_corner1" pos="-0.05 -0.05 -0.05" size="0.002" rgba="1 1 0 1"/>
+            <site name="b_corner2" pos="-0.05 -0.05  0.05" size="0.002" rgba="1 1 0 1"/>
+            <site name="b_corner3" pos="-0.05  0.05 -0.05" size="0.002" rgba="1 1 0 1"/>
+            <site name="b_corner4" pos="-0.05  0.05  0.05" size="0.002" rgba="1 1 0 1"/>
+            <site name="b_corner5" pos=" 0.05 -0.05 -0.05" size="0.002" rgba="1 0 1 1"/>
+            <site name="b_corner6" pos=" 0.05 -0.05  0.05" size="0.002" rgba="1 0 1 1"/>
+            <site name="b_corner7" pos=" 0.05  0.05 -0.05" size="0.002" rgba="1 0 1 1"/>
+            <site name="b_corner8" pos=" 0.05  0.05  0.05" size="0.002" rgba="1 0 1 1"/>
+
+            <!-- Center of back base -->
+            <!-- <site name="base_back_center" pos="0 -0.05 0" size="0.002" rgba="1 1 0 1"/> -->
+            <!-- Edge points on back base -->
+            <!-- <site name="base_back_x+" pos="0.05 -0.05 0" size="0.002" rgba="0 1 1 1"/>
+            <site name="base_back_x-" pos="-0.05 -0.05 0" size="0.002" rgba="0 1 1 1"/>
+            <site name="base_back_z+" pos="0 -0.05 0.05" size="0.002" rgba="0 1 1 1"/>
+            <site name="base_back_z-" pos="0 -0.05 -0.05" size="0.002" rgba="0 1 1 1"/> -->
+            <!-- Center of front base -->
+            <!-- <site name="base_front_center" pos="0 0.05 0" size="0.002" rgba="1 0 1 1"/> -->
+            <!-- Edge points on front base -->
+            <!-- <site name="base_front_x+" pos="0.05 0.05 0" size="0.002" rgba="1 0 1 1"/>
+            <site name="base_front_x-" pos="-0.05 0.05 0" size="0.002" rgba="1 0 1 1"/>
+            <site name="base_front_z+" pos="0 0.05 0.05" size="0.002" rgba="1 0 1 1"/>
+            <site name="base_front_z-" pos="0 0.05 -0.05" size="0.002" rgba="1 0 1 1"/> -->
+
             <joint name="base_joint" type="free"/>
             
             <!-- First joint and link -->
             <body name="link1" pos="0.05 0 0">
-                <joint name="joint1" type="hinge" axis="0 1 0" range="-90 90"/>
-                <geom name="link1_geom" type="capsule" fromto="0 0 0 0.2 0 0" size="0.01" rgba="0 0 1 1" mass="0.1" contype="1" conaffinity="1"/>
+                <joint name="joint1" type="hinge" axis="0 1 0" range="-80 80"/>
+                <geom name="link1_geom" type="capsule" fromto="0 0 0 0.2 0 0" size="0.01" rgba="0 0 1 1" mass="0.4" contype="1" solimp="0.95 0.99 0.001" solref="0.002 1" conaffinity="1"/>
+                <site name="knee" pos="0.2 0 0" size="0.002" rgba="1 0 0 1"/>
 
                 <!-- Second joint and link -->
                 <body name="link2" pos="0.2 0 0">
-                    <joint name="joint2" type="hinge" axis="0 1 0" range="-120 120"/>
-                    <geom name="link2_geom" type="capsule" fromto="0 0 0 0.2 0 0" size="0.01" rgba="0 1 0 1" mass="0.1" contype="1" conaffinity="1"/>
+                    <joint name="joint2" type="hinge" axis="0 1 0" range="0 150"/>
+                    <geom name="link2_geom" type="capsule" fromto="0 0 0 0.25 0 0" size="0.01" rgba="0 1 0 1" mass="0.02" contype="1" solimp="0.95 0.99 0.001" solref="0.002 1" conaffinity="1"/>
+                        <geom name="link2_termination" pos="0.25 0 0" type="box" size="0.01 0.01 0.01" rgba="0 1 0 1" mass="0.02" contype="1" solimp="0.9 0.99 0.001" solref="0.002 1" friction="0.9 0.9 0.3" conaffinity="1"/>
+                        
+                        <site name="corner1" pos="0.24  -0.01 -0.01" size="0.002" rgba="1 0 0 1"/>
+                        <site name="corner2" pos="0.24  -0.01  0.01" size="0.002" rgba="1 0 0 1"/>
+                        <site name="corner3" pos="0.24   0.01 -0.01" size="0.002" rgba="1 0 0 1"/>
+                        <site name="corner4" pos="0.24   0.01  0.01" size="0.002" rgba="1 0 0 1"/>
+                        <site name="corner5" pos="0.26  -0.01 -0.01" size="0.002" rgba="0 0 1 1"/>
+                        <site name="corner6" pos="0.26  -0.01  0.01" size="0.002" rgba="0 0 1 1"/>
+                        <site name="corner7" pos="0.26   0.01 -0.01" size="0.002" rgba="0 0 1 1"/>
+                        <site name="corner8" pos="0.26   0.01  0.01" size="0.002" rgba="0 0 1 1"/>
 
-                    <!-- Rounded tip -->
-                    <geom name="link2_tip" type="sphere" pos="0.2 0 0" size="0.015" rgba="0 1 0 1" mass="0.02" contype="1" conaffinity="1"/>
-
-                    <site name="link2_endpoint" pos="0.25 0 0" size="0.001" rgba="0.5 0.5 0.5 0.5"/>
                 </body>
 
             </body>
         </body>
 
         <!-- Floor geometry with friction and solimp to avoid penetration -->
-        <geom name="floor" type="plane" pos="0 0 -0.05" size="1 1 0.1" material="grid_material" friction="0.5 0.5 0.01" solimp="0.9 0.95 0.001" contype="1" conaffinity="1"/>
+        <geom name="floor" type="plane" pos="0 0 -0.05" size="1 1 0.1" material="grid_material" friction="0.5 0.5 0.3" solimp="0.9 0.99 0.001" solref="0.002 1" contype="1" conaffinity="1"/>
     </worldbody>
 
 </mujoco>

@@ -16,6 +16,10 @@ def main(cfg: DictConfig):
 
     agent = Agent(cfg)
 
+    # agent.load_model("checkpoints/model_forward_25.ckpt")
+    # agent.load_model("checkpoints/model_backward_10.ckpt")
+    # agent.run_policy(10)
+    # breakpoint()
     # wandb.init(
     #     project=cfg.project,
     #     resume=not cfg.resume_str is None,
@@ -27,10 +31,10 @@ def main(cfg: DictConfig):
 
     # wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
 
-    # agent.train(num_episodes=int(cfg.num_episodes))
+    agent.train(num_episodes=int(cfg.num_episodes))
 
-    agent.load_model("checkpoints/model_100.ckpt")
-    agent.run_policy(100)
+    # agent.load_model("checkpoints/model_100.ckpt")
+    # agent.run_policy(100)
 
     # agent.save_model(
     #     cfg.save_path,

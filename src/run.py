@@ -16,21 +16,20 @@ def main(cfg: DictConfig):
 
     agent = Agent(cfg)
 
-    # agent.load_model("checkpoints/model_forward_3.ckpt")
-    # agent.load_model("checkpoints/model_forward_25.ckpt")
-    # agent.load_model("checkpoints/model_backward_10.ckpt")
-    # agent.run_policy(10)
+    # agent.load_model("checkpoints/model_forward_6.ckpt")
+    agent.load_model("checkpoints/model_backward_151.ckpt")
+    agent.run_policy(10)
     # breakpoint()
-    # wandb.init(
-    #     project=cfg.project,
-    #     resume=not cfg.resume_str is None,
-    #     id=cfg.resume_str,
-    #     config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False),
-    # )
-    # wandb.run.name = cfg.exp_name
-    # wandb.run.save()
+    wandb.init(
+        project=cfg.project,
+        resume=not cfg.resume_str is None,
+        id=cfg.resume_str,
+        config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False),
+    )
+    wandb.run.name = cfg.exp_name
+    wandb.run.save()
 
-    # wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
+    wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
 
     agent.train(num_episodes=int(cfg.num_episodes))
 

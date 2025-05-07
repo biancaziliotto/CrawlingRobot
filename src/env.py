@@ -5,6 +5,7 @@ import gymnasium as gym
 import mujoco
 import mujoco.viewer
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 
 class Env(gym.Env):
@@ -26,7 +27,7 @@ class Env(gym.Env):
         self.episode_id = 0
         self.reset()
         self.state_dim = len(self.compute_observations())
-        self.min_steps = 2500
+        self.min_steps = 1000
         self.max_steps = 100000
 
         print("Environment initialized.")
@@ -70,6 +71,8 @@ class Env(gym.Env):
                 action = self.episode["actions"][curr_step]
                 self.mj_data.ctrl[:] = action
                 mujoco.mj_step(self.mj_model, self.mj_data)
+
+                self._get_upright_reward()
                 self.viewer.sync()
                 time.sleep(0.01)
                 curr_step += 1
@@ -121,6 +124,12 @@ class Env(gym.Env):
         # print(f"rwd {rwd}")
         return rwd
 
+    def _get_upright_reward(self):
+        curr_rot = self.mj_data.qpos[3:7]
+        r = R.from_quat(curr_rot)
+        euler = r.as_euler("xyz", degrees=False)
+        return -abs(euler[1] / np.pi) * self.cfg.w_upright_rwd
+
     def _get_energy_reward(self, action):
         return self.cfg.w_energy_rwd * np.exp(
             -self.cfg.k_energy_rwd * np.linalg.norm(action - self.previous_action)
@@ -134,21 +143,27 @@ class Env(gym.Env):
         """
         pos_rwd = self._get_position_reward()
         energy_rwd = self._get_energy_reward(action)
-        rwd = pos_rwd + energy_rwd
-        return rwd, {"pos_rwd": pos_rwd, "energy_rwd": energy_rwd, "rwd": rwd}
+        upright_rwd = self._get_upright_reward()
+        rwd = pos_rwd + energy_rwd + upright_rwd
+        return rwd, {
+            "pos_rwd": pos_rwd,
+            "energy_rwd": energy_rwd,
+            "upright_rwd": upright_rwd,
+            "rwd": rwd,
+        }
 
     def end_episode(self):
         done = False
         if (
             self.curr_step > self.min_steps
-            and self.cum_distance < self.curr_step * 0.0002
+            and self.cum_distance < self.curr_step * 0.0001
             and self.mode == "forward"
         ):
             done = True
             print(f"{self.cum_distance} in {self.curr_step} steps")
         elif (
             self.curr_step > self.min_steps
-            and self.cum_distance > -self.curr_step * 0.0002
+            and self.cum_distance > -self.curr_step * 0.0001
             and self.mode == "backward"
         ):
             done = True

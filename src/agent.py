@@ -46,6 +46,8 @@ class Agent:
         self.batch_size = cfg.learning.batch_size
         self.gamma = cfg.learning.gamma
         self.update_target_steps = cfg.learning.update_target_steps
+        self.update_steps = cfg.learning.update_steps
+        self.num_training_steps = cfg.learning.num_training_steps
 
         # Use Double DQN or Vanilla DQN
         self.double_dqn = cfg.learning.double_dqn
@@ -109,7 +111,7 @@ class Agent:
         # print(loss.item())
         self.optimizer.step()
 
-        # wandb.log({"loss": loss.item()}, step=self.step_counter)
+        wandb.log({"loss": loss.item()}, step=self.step_counter)
 
     def train(self, num_episodes):
         """
@@ -140,14 +142,16 @@ class Agent:
                 # ---------- 1. INTERACT WITH ENV ----------
                 action = self.select_action(state)
                 next_state, reward, done, rwd_dict = self.env.step(action)
-                # wandb.log(rwd_dict, step=self.step_counter)
+                wandb.log(rwd_dict, step=self.step_counter)
 
                 # ---------- 2. STORE TRANSITION ----------
                 self.replay_buffer.add(state, action, reward, next_state, done)
 
                 # ---------- 3. LEARN (after warmup) ----------
                 if len(self.replay_buffer) >= self.warmup_steps:
-                    self.train_step()
+                    if self.step_counter % self.update_steps == 0:
+                        for i in range(self.num_training_steps):
+                            self.train_step()
 
                 # ---------- 4. TARGET NETWORK SYNC ----------
                 if self.step_counter % self.update_target_steps == 0:
@@ -164,12 +168,12 @@ class Agent:
                     )
 
                 # ---------- 6. HOUSEKEEPING ----------
-                # wandb.log(
-                #     {
-                #         "epsilon": self.epsilon,
-                #     },
-                #     step=self.step_counter,
-                # )
+                wandb.log(
+                    {
+                        "epsilon": self.epsilon,
+                    },
+                    step=self.step_counter,
+                )
                 state = next_state
                 episode_reward += reward
 
@@ -183,15 +187,16 @@ class Agent:
                         f"checkpoints/model_{self.env.mode}_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
                     )
 
-            # print(f"reward {episode_reward}")
+            print(f"reward {episode_reward}")
             # ---------- LOGGING ----------
-            # wandb.log(
-            #     {
-            #         "episode_reward": episode_reward,
-            #         "episode_length": self.env.curr_step,
-            #         "episode": episode,
-            #     }
-            # )
+            wandb.log(
+                {
+                    "episode_reward": episode_reward,
+                    "episode_length": self.env.curr_step,
+                    "episode_distance": self.env.cum_distance,
+                    "episode": episode,
+                }
+            )
 
     def run_policy(self, num_episodes):
         """

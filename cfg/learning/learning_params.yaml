@@ -8,5 +8,7 @@ warmup_steps: 1e5
 batch_size: 32
 gamma: 0.99
 checkpoint_frequency: 1e5
-update_target_steps: 1e4
+update_target_steps: 1e5
+update_steps: 1e4
+num_training_steps: 100
 double_dqn: True

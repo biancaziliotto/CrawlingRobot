@@ -12,9 +12,10 @@ save_path: outputs/model.ckpt
 
 num_episodes: 1e6
 
-w_energy_rwd: 0.01
+w_upright_rwd: 0.01
+w_energy_rwd: 0.0
 w_pos_rwd: 0.99
 k_energy_rwd: 0.01
 k_pos_rwd: 100
 
-mode: "forward"
+mode: "backward"

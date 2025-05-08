@@ -11,6 +11,11 @@ resume_str: null
 save_path: outputs/model.ckpt
 
 num_episodes: 1e6
+min_steps: 1000
+max_steps: 100000
+min_avg_distance_per_step: 0.0001
+
+deterministic_start: True
 
 w_upright_rwd: 0.01
 w_energy_rwd: 0.0

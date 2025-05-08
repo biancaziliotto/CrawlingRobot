@@ -1,4 +1,4 @@
-import time
+import argparse
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -13,16 +13,24 @@ from agent import Agent
     config_name="config",
 )
 def main(cfg: DictConfig):
+    parser = argparse.ArgumentParser(description="RL agent")
+    parser.add_argument(
+        "--eval",
+        action="store_true",
+        help="Evaluate the agent instead of training",
+    )
+    args = parser.parse_args()
 
     agent = Agent(cfg)
 
-    # agent.load_model("checkpoints/model_forward_6.ckpt")
-    agent.load_model("checkpoints/model_backward_151.ckpt")
-    agent.run_policy(10)
-    # breakpoint()
+    if args.eval:
+        agent.load_model(cfg.load_path)
+        agent.run_policy(10)
+        return
+
     wandb.init(
         project=cfg.project,
-        resume=not cfg.resume_str is None,
+        resume=cfg.resume_str is not None,
         id=cfg.resume_str,
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False),
     )
@@ -32,13 +40,6 @@ def main(cfg: DictConfig):
     wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
 
     agent.train(num_episodes=int(cfg.num_episodes))
-
-    # agent.load_model("checkpoints/model_100.ckpt")
-    # agent.run_policy(100)
-
-    # agent.save_model(
-    #     cfg.save_path,
-    # )
 
 
 if __name__ == "__main__":

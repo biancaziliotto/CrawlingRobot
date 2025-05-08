@@ -22,19 +22,20 @@ class Env(gym.Env):
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
         self.mode = self.cfg.mode
-        self.discretized_action = np.arange(-0.99, 1, 0.11)
+        self.discretized_action = np.linspace(-0.99, 0.99, num=19)
         self.action_dim = len(self.discretized_action) ** self.mj_model.nu
         self.episode_id = 0
         self.reset()
         self.state_dim = len(self.compute_observations())
-        self.min_steps = 1000
-        self.max_steps = 100000
+        self.min_steps = int(cfg.min_steps)
+        self.max_steps = int(cfg.max_steps)
+        self.min_avg_distance_per_step = cfg.min_avg_distance_per_step
+
+        self.deterministic_start = cfg.deterministic_start
 
         print("Environment initialized.")
         print(f"state_dim = {self.state_dim}")
         print(f"action_dim = {self.action_dim}")
-
-        # self._run_simulation()
 
         return
 
@@ -43,10 +44,19 @@ class Env(gym.Env):
         Initialize episode.
         """
         super().reset(seed=seed, options=options)
+
+        # Initial position of the crawler
         self.mj_data.qpos = np.zeros(len(self.mj_data.qpos))
-        self.mj_data.qpos[-2] = -np.random.rand(1) * 1.57 / 2
-        self.mj_data.qpos[-1] = np.random.rand(1) * 1.57 / 2 - 1.57 / 4
         self.mj_data.xpos[0] = 0
+
+        if self.deterministic_start:
+            self.mj_data.qpos[-2] = -0.5 * np.pi / 4
+            self.mj_data.qpos[-1] = 0.5 * np.pi / 4 - np.pi / 8
+        else:
+            self.mj_data.qpos[-2] = -np.random.rand(1) * np.pi / 4
+            self.mj_data.qpos[-1] = np.random.rand(1) * np.pi / 4 - np.pi / 8
+
+        # Reset env state
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
         self.previous_pose = self._get_xpos()[1][0].copy()
         self.previous_action = [0, 0]
@@ -130,9 +140,10 @@ class Env(gym.Env):
         euler = r.as_euler("xyz", degrees=False)
         return -abs(euler[1] / np.pi) * self.cfg.w_upright_rwd
 
+    # TODO: This is not an energy reward
     def _get_energy_reward(self, action):
         return self.cfg.w_energy_rwd * np.exp(
-            -self.cfg.k_energy_rwd * np.linalg.norm(action - self.previous_action)
+            -self.cfg.k_energy_rwd * np.linalg.norm(action)
         )
 
     def compute_reward(self, action):
@@ -156,14 +167,14 @@ class Env(gym.Env):
         done = False
         if (
             self.curr_step > self.min_steps
-            and self.cum_distance < self.curr_step * 0.0001
+            and self.cum_distance < self.curr_step * self.min_avg_distance_per_step
             and self.mode == "forward"
         ):
             done = True
             print(f"{self.cum_distance} in {self.curr_step} steps")
         elif (
             self.curr_step > self.min_steps
-            and self.cum_distance > -self.curr_step * 0.0001
+            and self.cum_distance > -self.curr_step * self.min_avg_distance_per_step
             and self.mode == "backward"
         ):
             done = True

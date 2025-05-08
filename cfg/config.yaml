@@ -2,7 +2,7 @@ defaults:
 - learning: learning_params
 
 xml_path: "data/crawling_robot.xml"
-qnet_units: [64,256,256,64]
+qnet_units: [128,256,128]
 
 project: crawling_robot
 exp_name: experimentlargeforces
@@ -10,9 +10,12 @@ resume_str: null
 
 save_path: outputs/model.ckpt
 
-num_episodes: 1e4
+num_episodes: 1e6
 
-w_energy_rwd: 0
-w_pos_rwd: 1
-k_energy_rwd: 1
-k_pos_rwd: 1
+w_upright_rwd: 0.01
+w_energy_rwd: 0.0
+w_pos_rwd: 0.99
+k_energy_rwd: 0.01
+k_pos_rwd: 100
+
+mode: "backward"

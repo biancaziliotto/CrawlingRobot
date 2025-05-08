@@ -46,6 +46,8 @@ class Agent:
         self.batch_size = cfg.learning.batch_size
         self.gamma = cfg.learning.gamma
         self.update_target_steps = cfg.learning.update_target_steps
+        self.update_steps = cfg.learning.update_steps
+        self.num_training_steps = cfg.learning.num_training_steps
 
         # Use Double DQN or Vanilla DQN
         self.double_dqn = cfg.learning.double_dqn
@@ -147,7 +149,9 @@ class Agent:
 
                 # ---------- 3. LEARN (after warmup) ----------
                 if len(self.replay_buffer) >= self.warmup_steps:
-                    self.train_step()
+                    if self.step_counter % self.update_steps == 0:
+                        for i in range(self.num_training_steps):
+                            self.train_step()
 
                 # ---------- 4. TARGET NETWORK SYNC ----------
                 if self.step_counter % self.update_target_steps == 0:
@@ -177,17 +181,19 @@ class Agent:
 
                 if self.step_counter % self.checkpoint_frequency == 0:
                     self.save_model(
-                        f"checkpoints/model_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
+                        f"checkpoints/model_{self.env.mode}_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
                     )
                     self.load_model(
-                        f"checkpoints/model_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
+                        f"checkpoints/model_{self.env.mode}_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
                     )
 
+            print(f"reward {episode_reward}")
             # ---------- LOGGING ----------
             wandb.log(
                 {
                     "episode_reward": episode_reward,
                     "episode_length": self.env.curr_step,
+                    "episode_distance": self.env.cum_distance,
                     "episode": episode,
                 }
             )
@@ -211,6 +217,8 @@ class Agent:
 
                 self.step_counter += 1
 
+            print(rwd_dict)
+            print(f"reward {episode_reward}")
             self.env.visualize()
 
     def select_action(self, state):

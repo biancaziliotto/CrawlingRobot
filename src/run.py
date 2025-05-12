@@ -1,10 +1,11 @@
-import argparse
+from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
 import wandb
 from agent import Agent
+from utils.utils import get_last_ckpt
 
 
 @hydra.main(
@@ -13,19 +14,15 @@ from agent import Agent
     config_name="config",
 )
 def main(cfg: DictConfig):
-    parser = argparse.ArgumentParser(description="RL agent")
-    parser.add_argument(
-        "--eval",
-        action="store_true",
-        help="Evaluate the agent instead of training",
-    )
-    args = parser.parse_args()
-
     agent = Agent(cfg)
 
-    if args.eval:
-        agent.load_model(cfg.load_path)
-        agent.run_policy(10)
+    if cfg.eval:
+        last_ckpt = get_last_ckpt(Path(cfg.checkpoint_dir))
+        print(last_ckpt)
+        agent.load_model(last_ckpt)
+        agent.eval()
+        agent.env.load_env_specs(cfg.checkpoint_dir)
+        agent.run_policy(100)
         return
 
     wandb.init(

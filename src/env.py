@@ -32,6 +32,21 @@ class Env(gym.Env):
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
 
+        # Get the tip ids
+        self.tip_ids = [
+            self.mj_model.sensor(name).adr
+            for name in (
+                "floor_touch_1",
+                "floor_touch_2",
+                "floor_touch_3",
+                "floor_touch_4",
+                "floor_touch_5",
+                "floor_touch_6",
+                "floor_touch_7",
+                "floor_touch_8",
+            )
+        ]
+
         # Initialize the environment
         self.episode_id = 0
         self.deterministic_start = cfg.deterministic_start
@@ -61,6 +76,8 @@ class Env(gym.Env):
         print("Environment initialized.")
         return
 
+    # TODO: This is called after initializing the environment, so it has no effect
+    # Also has no effect on the agent
     def load_env_specs(self, ckpt_dir: str):
         """
         Load the MuJoCo model and cfg dictionary from the checkpoint directory.
@@ -74,13 +91,32 @@ class Env(gym.Env):
         # Load the MuJoCo model
         self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
+        self.ctrl_low = self.mj_model.actuator_ctrlrange[:, 0]
+        self.ctrl_high = self.mj_model.actuator_ctrlrange[:, 1]
 
         # Load the cfg dictionary
         with open(cfg_path, "rb") as f:
             cfg_dict = pickle.load(f)
         self.cfg = OmegaConf.create(cfg_dict)
 
+        # Set the environment parameters
+        self.mode = self.cfg.mode
+        self.deterministic_start = self.cfg.deterministic_start
+        self.min_steps = int(self.cfg.min_steps)
+        self.max_steps = int(self.cfg.max_steps)
+        self.min_avg_distance_per_step = self.cfg.min_avg_distance_per_step
+        self.levels = self.cfg.action_levels
+        self.discretized_action = np.linspace(
+            self.ctrl_low[0], self.ctrl_high[0], num=self.levels
+        )
+        self.state_dim = len(self.compute_observations())
+        self.action_dim = self.levels**self.mj_model.nu
+        self.print_sensors()
+        print(f"state_dim = {self.state_dim}")
+        print(f"action_dim = {self.action_dim}")
+
         print(f"Environment spec loaded from {ckpt_dir}")
+        print(f"cfg: {self.cfg}")
         return
 
     def save_env_specs(self):
@@ -88,7 +124,7 @@ class Env(gym.Env):
         Save the MuJoCo model and cfg dictionary to the checkpoint directory.
         """
         ckpt_dir = self.cfg.checkpoint_dir
-        os.makedirs(ckpt_dir)
+        os.makedirs(ckpt_dir, exist_ok=True)
 
         # 1) copy the original XML
         xml_dst = os.path.join(ckpt_dir, "env_model.xml")
@@ -135,7 +171,7 @@ class Env(gym.Env):
 
         # Reset env state
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
-        self.previous_xpos = self._get_xpos()[1][0].copy()
+        self.previous_xpos = float(self.mj_data.qpos[0])
         self.previous_action = np.zeros(self.mj_model.nu)
 
         # Reset "previous" variables
@@ -183,32 +219,40 @@ class Env(gym.Env):
         """
         pass
 
+    def _is_tip_touching(self):
+        """
+        Check if the tip of the robot's secon link is touching the ground.
+
+        Returns:
+            bool: True if the tip is touching the ground, False otherwise.
+        """
+        tip_touch = np.any(self.mj_data.sensordata[self.tip_ids] > 0.0)
+        return tip_touch
+
     def compute_observations(self):
         """
         Compute the observations.
 
-        Calculate the following:
-            - Positions of body parts relative to the base
-            - Hinge angles
-            - Hinge velocities
-            - Sensor data
-            - Previous action
+        We want to exclude absolute x and y positions to avoid state aliasing.
 
         Returns
             - obs (np.ndarray): Observations of the environment.
                 Shape: ((n_body_parts-1) * 3 + n_joints * 2 + n_sensors + n_actions,)
         """
-        # Get the position of the base
-        base_pos = self._get_xpos()[1]
-
-        # Get the position of the body parts relative to the base
-        rel_body_pos = (self._get_xpos()[2:] - base_pos).flatten()
-
-        # Get the q positions and velocities of the joints
+        # POSITIONS / ROTATIONS
         # qpos = [ x  y  z   qw qx qy qz   q_joint1  q_joint2 ... ]
+        base_pos = self.mj_data.qpos[:3].copy()  # x y z
+        base_quat = self.mj_data.qpos[3:7].copy()  # qw qx qy qz
+        joint_qpos = self.mj_data.qpos[7:].copy()  # q_joint1 q_joint2 ...
+
+        # VELOCITIES / ANGULAR VELOCITIES
         # qvel = [ vx vy vz  wx wy wz  q'_joint1 q'_joint2 ... ]
-        joint_pos = self.mj_data.qpos[7:].copy()
-        joint_vel = self.mj_data.qvel[6:].copy()
+        base_vel = self.mj_data.qvel[:3].copy()  # vx vy vz
+        base_ang_vel = self.mj_data.qvel[3:6].copy()  # wx wy wz
+        joint_qvel = self.mj_data.qvel[6:].copy()
+
+        # Take only the z position of the base
+        base_z = base_pos[2:3]
 
         # Get the sensor data
         sensor_data = self.mj_data.sensordata.copy()
@@ -216,24 +260,33 @@ class Env(gym.Env):
         # Concatenate observations and previous action
         obs = np.concatenate(
             [
-                rel_body_pos,
-                joint_pos,
-                joint_vel,
+                base_z,
+                base_quat,
+                joint_qpos,
+                base_vel,
+                base_ang_vel,
+                joint_qvel,
                 sensor_data,
                 self.previous_action,
             ]
         )
 
-        assert obs.shape == (
-            (self.mj_model.nbody - 2) * 3
-            + self.mj_model.nu * 2
-            + self.mj_model.nsensordata
-            + self.mj_model.nu,
-        ), f"obs shape {obs.shape} mismatch"
+        expected_shape = (
+            1  # base_z
+            + 4  # base_quat
+            + (self.mj_model.nq - 7)  # joint_qpos
+            + 3  # base_vel
+            + 3  # base_ang_vel
+            + (self.mj_model.nv - 6)  # joint_qvel
+            + self.mj_model.nsensordata  # sensor_data
+            + self.mj_model.nu,  # previous action
+        )
+
+        assert obs.shape == expected_shape, f"obs shape {obs.shape} != {expected_shape}"
         return obs
 
     def _get_position_reward(self):
-        curr_x = self._get_xpos()[1][0]
+        curr_x = float(self.mj_data.qpos[0])
 
         # Get the distance traveled since the last step in the desired direction
         if self.mode == "forward":
@@ -241,11 +294,15 @@ class Env(gym.Env):
         elif self.mode == "backward":
             distance = self.previous_xpos - curr_x
         self.cum_distance += distance
-        self.previous_xpos = curr_x.copy()
+        self.previous_xpos = curr_x
 
         # Calculate the reward based on the distance traveled
         if distance > 0:
-            rwd = self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
+            rwd = (
+                self.cfg.w_pos_rwd
+                * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
+                * self._is_tip_touching()
+            )
         else:
             rwd = self.cfg.w_pos_rwd * (
                 -1 + np.exp(-self.cfg.k_pos_rwd * abs(distance))
@@ -257,7 +314,7 @@ class Env(gym.Env):
         """
         Negative reward if the base COM rises above a threshold height.
         """
-        body_z = self._get_xpos()[1, 2]
+        body_z = float(self.mj_data.qpos[2])
         airborne = body_z > self.cfg.airborne_z_thresh
         return -self.cfg.airborne_penalty if airborne else 0.0
 
@@ -322,7 +379,7 @@ class Env(gym.Env):
         )
 
         rwd_info = {
-            "pos_bonus": pos_rwd,
+            "pos_rwd": pos_rwd,
             "energy_rwd": energy_rwd,
             "upright_rwd": upright_rwd,
             "air_penalty": air_penalty,
@@ -383,7 +440,6 @@ class Env(gym.Env):
             rwd (float): Reward received after taking the action.
             done (bool): True if the episode is done, False otherwise.
             rwd_dict (dict): Dictionary containing the reward components.
-                Keys: "plant_bonus", "vel_rwd", "energy_rwd", "upright_rwd", "rwd"
         """
         # Take a step in the environment
         action = self.decode_action(action_idx)

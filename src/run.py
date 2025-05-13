@@ -16,8 +16,8 @@ def main(cfg: DictConfig):
 
     agent = Agent(cfg)
 
-    # agent.load_model("checkpoints/model_forward_6.ckpt")
-    agent.load_model("checkpoints/model_backward_151.ckpt")
+    agent.load_model("checkpoints/model_forward_35.ckpt")
+    # agent.load_model("checkpoints/model_backward_151.ckpt")
     agent.run_policy(10)
     # breakpoint()
     wandb.init(

@@ -22,7 +22,7 @@ class Env(gym.Env):
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
         self.mode = self.cfg.mode
-        self.discretized_action = np.arange(-0.99, 1, 0.11)
+        self.discretized_action = np.arange(-1, 1.1, 0.5)
         self.action_dim = len(self.discretized_action) ** self.mj_model.nu
         self.episode_id = 0
         self.reset()
@@ -44,8 +44,10 @@ class Env(gym.Env):
         """
         super().reset(seed=seed, options=options)
         self.mj_data.qpos = np.zeros(len(self.mj_data.qpos))
-        self.mj_data.qpos[-2] = -np.random.rand(1) * 1.57 / 2
-        self.mj_data.qpos[-1] = np.random.rand(1) * 1.57 / 2 - 1.57 / 4
+        # self.mj_data.qpos[-2] = -np.random.rand(1) * 1.57 / 2
+        # self.mj_data.qpos[-1] = np.random.rand(1) * 1.57 / 2 - 1.57 / 4
+        self.mj_data.qpos[-2] = -0.5 * 1.57 / 2
+        self.mj_data.qpos[-1] = 0.5 * 1.57 / 2 - 1.57 / 4
         self.mj_data.xpos[0] = 0
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
         self.previous_pose = self._get_xpos()[1][0].copy()
@@ -128,7 +130,7 @@ class Env(gym.Env):
         curr_rot = self.mj_data.qpos[3:7]
         r = R.from_quat(curr_rot)
         euler = r.as_euler("xyz", degrees=False)
-        return -abs(euler[1] / np.pi) * self.cfg.w_upright_rwd
+        return (1 - abs(euler[1] / np.pi)) * self.cfg.w_upright_rwd
 
     def _get_energy_reward(self, action):
         return self.cfg.w_energy_rwd * np.exp(

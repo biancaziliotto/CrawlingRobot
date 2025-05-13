@@ -131,7 +131,6 @@ class Agent:
         Args:
             num_episodes (int): Number of episodes to train the agent.
         """
-
         for episode in range(num_episodes):
             self.env.reset()
             state = self.env.compute_observations()
@@ -202,6 +201,7 @@ class Agent:
         """
         Can be used for evaluation or visualization.
         """
+        self.epsilon = 0
         for episode in range(num_episodes):
             self.env.reset()
             state = self.env.compute_observations()

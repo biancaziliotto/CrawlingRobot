@@ -1,3 +1,6 @@
+import os
+import pickle
+import shutil
 import time
 from typing import Optional
 
@@ -5,6 +8,7 @@ import gymnasium as gym
 import mujoco
 import mujoco.viewer
 import numpy as np
+from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation as R
 
 
@@ -19,37 +23,122 @@ class Env(gym.Env):
         """
         self.cfg = cfg
         self.render_mode = "human"
+
+        # Initialize physical system
+        self.mode = self.cfg.mode
+        assert self.mode in ["forward", "backward"], (
+            "Only forward and backward modes supported"
+        )
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
-        self.mode = self.cfg.mode
-        self.discretized_action = np.arange(-0.99, 1, 0.11)
-        self.action_dim = len(self.discretized_action) ** self.mj_model.nu
-        self.episode_id = 0
-        self.reset()
-        self.state_dim = len(self.compute_observations())
-        self.min_steps = 1000
-        self.max_steps = 100000
 
-        print("Environment initialized.")
+        # Initialize the environment
+        self.episode_id = 0
+        self.deterministic_start = cfg.deterministic_start
+        self.reset()
+
+        self.min_steps = int(cfg.min_steps)
+        self.max_steps = int(cfg.max_steps)
+        self.min_avg_distance_per_step = cfg.min_avg_distance_per_step
+
+        self.ctrl_low = self.mj_model.actuator_ctrlrange[:, 0]
+        self.ctrl_high = self.mj_model.actuator_ctrlrange[:, 1]
+
+        self.levels = cfg.action_levels
+
+        self.discretized_action = np.linspace(
+            self.ctrl_low[0], self.ctrl_high[0], num=self.levels
+        )
+
+        # Input/Output for QNet
+        self.state_dim = len(self.compute_observations())
+        self.action_dim = self.levels**self.mj_model.nu
         print(f"state_dim = {self.state_dim}")
         print(f"action_dim = {self.action_dim}")
 
-        # self._run_simulation()
+        self.print_sensors()
 
+        print("Environment initialized.")
         return
+
+    def load_env_specs(self, ckpt_dir: str):
+        """
+        Load the MuJoCo model and cfg dictionary from the checkpoint directory.
+
+        Args:
+            ckpt_dir (str): Path to the checkpoint directory.
+        """
+        xml_path = os.path.join(ckpt_dir, "env_model.xml")
+        cfg_path = os.path.join(ckpt_dir, "env_cfg.pkl")
+
+        # Load the MuJoCo model
+        self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
+        self.mj_data = mujoco.MjData(self.mj_model)
+
+        # Load the cfg dictionary
+        with open(cfg_path, "rb") as f:
+            cfg_dict = pickle.load(f)
+        self.cfg = OmegaConf.create(cfg_dict)
+
+        print(f"Environment spec loaded from {ckpt_dir}")
+        return
+
+    def save_env_specs(self):
+        """
+        Save the MuJoCo model and cfg dictionary to the checkpoint directory.
+        """
+        ckpt_dir = self.cfg.checkpoint_dir
+        os.makedirs(ckpt_dir)
+
+        # 1) copy the original XML
+        xml_dst = os.path.join(ckpt_dir, "env_model.xml")
+        shutil.copy2(self.cfg.xml_path, xml_dst)
+
+        # 2) dump the resolved cfg dict
+        cfg_dict = OmegaConf.to_container(self.cfg, resolve=True)
+        with open(os.path.join(ckpt_dir, "env_cfg.pkl"), "wb") as f:
+            pickle.dump(cfg_dict, f)
+
+        print(f"Environment spec saved to {ckpt_dir}")
+
+    def print_sensors(self):
+        """
+        Print one line per sensor in the model.
+        """
+        print(f"Total sensors: {self.mj_model.nsensor}\n")
+        for sid in range(self.mj_model.nsensor):
+            sref = self.mj_model.sensor(sid)
+            name = mujoco.mj_id2name(self.mj_model, mujoco.mjtObj.mjOBJ_SENSOR, sid)
+            s_type = mujoco.mjtSensor(sref.type).name.replace("mjSENS_", "")
+            dim = sref.dim
+            adr = sref.adr
+            print(
+                f"[{sid:2d}] {name:<20s} | type: {s_type:<10s} | dim: {dim} | adr: {adr}"
+            )
 
     def reset(self, seed: Optional[int] = None, options=None):
         """
         Initialize episode.
         """
         super().reset(seed=seed, options=options)
+
+        # Initial position of the crawler
         self.mj_data.qpos = np.zeros(len(self.mj_data.qpos))
-        self.mj_data.qpos[-2] = -np.random.rand(1) * 1.57 / 2
-        self.mj_data.qpos[-1] = np.random.rand(1) * 1.57 / 2 - 1.57 / 4
         self.mj_data.xpos[0] = 0
+
+        if self.deterministic_start:
+            self.mj_data.qpos[-2] = 0
+            self.mj_data.qpos[-1] = 0
+        else:
+            self.mj_data.qpos[-2] = -np.random.rand(1) * np.pi / 4
+            self.mj_data.qpos[-1] = np.random.rand(1) * np.pi / 4 - np.pi / 8
+
+        # Reset env state
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
-        self.previous_pose = self._get_xpos()[1][0].copy()
-        self.previous_action = [0, 0]
+        self.previous_xpos = self._get_xpos()[1][0].copy()
+        self.previous_action = np.zeros(self.mj_model.nu)
+
+        # Reset "previous" variables
         self.curr_step = 0
         self.cum_distance = 0
         self.episode = {"initial_pqos": self.mj_data.qpos.copy(), "actions": []}
@@ -96,44 +185,120 @@ class Env(gym.Env):
 
     def compute_observations(self):
         """
-        Returns
-        """
-        observations = []
-        observations.extend(self._get_xpos().flatten())
-        observations.extend(self._get_qpos().flatten())
-        observations.extend(self._get_sensordata().flatten())
-        observations.extend(self.previous_action)
+        Compute the observations.
 
-        return observations
+        Calculate the following:
+            - Positions of body parts relative to the base
+            - Hinge angles
+            - Hinge velocities
+            - Sensor data
+            - Previous action
+
+        Returns
+            - obs (np.ndarray): Observations of the environment.
+                Shape: ((n_body_parts-1) * 3 + n_joints * 2 + n_sensors + n_actions,)
+        """
+        # Get the position of the base
+        base_pos = self._get_xpos()[1]
+
+        # Get the position of the body parts relative to the base
+        rel_body_pos = (self._get_xpos()[2:] - base_pos).flatten()
+
+        # Get the q positions and velocities of the joints
+        # qpos = [ x  y  z   qw qx qy qz   q_joint1  q_joint2 ... ]
+        # qvel = [ vx vy vz  wx wy wz  q'_joint1 q'_joint2 ... ]
+        joint_pos = self.mj_data.qpos[7:].copy()
+        joint_vel = self.mj_data.qvel[6:].copy()
+
+        # Get the sensor data
+        sensor_data = self.mj_data.sensordata.copy()
+
+        # Concatenate observations and previous action
+        obs = np.concatenate(
+            [
+                rel_body_pos,
+                joint_pos,
+                joint_vel,
+                sensor_data,
+                self.previous_action,
+            ]
+        )
+
+        assert obs.shape == (
+            (self.mj_model.nbody - 2) * 3
+            + self.mj_model.nu * 2
+            + self.mj_model.nsensordata
+            + self.mj_model.nu,
+        ), f"obs shape {obs.shape} mismatch"
+        return obs
 
     def _get_position_reward(self):
-        curr_pos = self._get_xpos()[1][0]
-        distance = curr_pos - self.previous_pose
-        self.previous_pose = curr_pos.copy()
+        curr_x = self._get_xpos()[1][0]
+
+        # Get the distance traveled since the last step in the desired direction
+        if self.mode == "forward":
+            distance = curr_x - self.previous_xpos
+        elif self.mode == "backward":
+            distance = self.previous_xpos - curr_x
         self.cum_distance += distance
-        # print(f"distance {distance}")
-        if (distance > 0 and self.mode == "forward") or (
-            distance < 0 and self.mode == "backward"
-        ):
-            rwd = self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * abs(distance)))
+        self.previous_xpos = curr_x.copy()
+
+        # Calculate the reward based on the distance traveled
+        if distance > 0:
+            rwd = self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
         else:
             rwd = self.cfg.w_pos_rwd * (
                 -1 + np.exp(-self.cfg.k_pos_rwd * abs(distance))
             )
 
-        # print(f"rwd {rwd}")
         return rwd
 
+    def _get_airborne_penalty(self) -> float:
+        """
+        Negative reward if the base COM rises above a threshold height.
+        """
+        body_z = self._get_xpos()[1, 2]
+        airborne = body_z > self.cfg.airborne_z_thresh
+        return -self.cfg.airborne_penalty if airborne else 0.0
+
     def _get_upright_reward(self):
+        """
+        Returns the upright reward based on the robot's orientation.
+        The reward is negative if the robot is not upright.
+
+        Attention: Mujoco and scipy use different conventions for quaternions.
+
+        Returns:
+            float: Upright reward.
+        """
         curr_rot = self.mj_data.qpos[3:7]
-        r = R.from_quat(curr_rot)
+        r = R.from_quat(curr_rot, scalar_first=True)
+
         euler = r.as_euler("xyz", degrees=False)
         return -abs(euler[1] / np.pi) * self.cfg.w_upright_rwd
 
     def _get_energy_reward(self, action):
-        return self.cfg.w_energy_rwd * np.exp(
-            -self.cfg.k_energy_rwd * np.linalg.norm(action - self.previous_action)
-        )
+        """
+        Returns the energy reward based on the action taken.
+        The reward is negative if the action is not zero.
+
+        Returns:
+            float: Energy reward.
+        """
+        energy_rwd = -self.cfg.w_energy_rwd * np.square(action).sum()
+        return energy_rwd
+
+    def _get_smoothness_penalty(self, action: np.ndarray) -> float:
+        """
+        Negative reward proportional to the squared change in control
+        (i.e. sum of (u_t - u_{t-1})^2). Encourages gradual torque changes.
+        """
+        delta_u = action - self.previous_action
+
+        # squared L2 norm of the change
+        sq_change = np.square(delta_u).sum()
+
+        return -self.cfg.w_smooth * sq_change
 
     def compute_reward(self, action):
         """
@@ -144,71 +309,96 @@ class Env(gym.Env):
         pos_rwd = self._get_position_reward()
         energy_rwd = self._get_energy_reward(action)
         upright_rwd = self._get_upright_reward()
-        rwd = pos_rwd + energy_rwd + upright_rwd
-        return rwd, {
-            "pos_rwd": pos_rwd,
+        air_penalty = self._get_airborne_penalty()
+        smoothness_penalty = self._get_smoothness_penalty(action)
+
+        rwd = (
+            +pos_rwd
+            + energy_rwd
+            + upright_rwd
+            + air_penalty
+            + smoothness_penalty
+            + self.cfg.time_penalty
+        )
+
+        rwd_info = {
+            "pos_bonus": pos_rwd,
             "energy_rwd": energy_rwd,
             "upright_rwd": upright_rwd,
+            "air_penalty": air_penalty,
+            "smoothness_penalty": smoothness_penalty,
             "rwd": rwd,
         }
+
+        return rwd, rwd_info
 
     def end_episode(self):
         done = False
         if (
             self.curr_step > self.min_steps
-            and self.cum_distance < self.curr_step * 0.0001
-            and self.mode == "forward"
+            and self.cum_distance < self.curr_step * self.min_avg_distance_per_step
         ):
             done = True
             print(f"{self.cum_distance} in {self.curr_step} steps")
-        elif (
-            self.curr_step > self.min_steps
-            and self.cum_distance > -self.curr_step * 0.0001
-            and self.mode == "backward"
-        ):
-            done = True
-            print(self.cum_distance)
-            print(f"{self.cum_distance} in {self.curr_step} steps")
+
         if self.curr_step >= self.max_steps:
             done = True
-            print(self.cum_distance)
             print(f"{self.cum_distance} in {self.curr_step} steps")
 
         return done
 
-    def step(self, action):
+    def decode_action(self, idx: int) -> np.ndarray:
         """
-        Execute action and update state.
-        Returns reward and observations of next state.
+        Maps a scalar action index to a discretized action.
+        The action index is a number between 0 and action_dim - 1.
+
+        Args:
+            idx (int): Action index.
+
+        Returns:
+            np.ndarray: Decoded action.
+                Shape: (nu,)
         """
+        indices = []
+        for _ in range(self.mj_model.nu):
+            indices.append(idx % self.levels)
+            idx //= self.levels
+        indices.reverse()
 
-        def decode_action(action):
-            levels = len(self.discretized_action)
-            actuators = self.mj_model.nu
+        decoded_action = []
+        for index in indices:
+            decoded_action.append(self.discretized_action[index])
 
-            # print(action)
-            indices = []
-            for _ in range(actuators):
-                indices.append(action % levels)
-                action //= levels
-            indices = indices[::-1].copy()
+        return np.array(decoded_action)
 
-            decoded_action = []
-            for index in indices:
-                decoded_action.append(self.discretized_action[index])
-            # print(decoded_action)
+    def step(self, action_idx: int) -> tuple:
+        """
+        Take a step in the environment.
+        Args:
+            action_idx (int): Action index.
 
-            return np.array(decoded_action)
-
-        action = decode_action(action)
-        # print(action)
+        Returns:
+            obs (np.ndarray): Observations of the environment.
+                Shape: ((n_body_parts-1) * 3 + n_joints * 2 + n_sensors + n_actions,)
+            rwd (float): Reward received after taking the action.
+            done (bool): True if the episode is done, False otherwise.
+            rwd_dict (dict): Dictionary containing the reward components.
+                Keys: "plant_bonus", "vel_rwd", "energy_rwd", "upright_rwd", "rwd"
+        """
+        # Take a step in the environment
+        action = self.decode_action(action_idx)
         self.mj_data.ctrl[:] = action
         mujoco.mj_step(self.mj_model, self.mj_data)
-        # print(self.mj_data.qpos)
-        self.curr_step += 1
+
+        # Compute the observations and reward
         obs = self.compute_observations()
         rwd, rwd_dict = self.compute_reward(action)
+
+        # Set "previous" variables
         self.previous_action = action
+
+        # Check if the episode is done
+        self.curr_step += 1
         done = self.end_episode()
 
         self.episode["actions"].append(action)

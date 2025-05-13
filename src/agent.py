@@ -30,13 +30,14 @@ class Agent:
         # Initialize the optimizer and replay buffer
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), cfg.learning.lr)
 
-        self.checkpoint_frequency = cfg.learning.checkpoint_frequency
+        self.checkpoint_frequency = cfg.checkpoint_frequency
 
         # Initialize the epsilon-greedy parameters
         self.epsilon = cfg.learning.epsilon
         self.epsilon_decay = cfg.learning.epsilon_decay
         self.epsilon_update_steps = cfg.learning.epsilon_update_steps
         self.epsilon_min = cfg.learning.epsilon_min
+        self.eval_mode = False
 
         # Initialize the buffer parameters
         self.replay_buffer = ReplayBuffer(capacity=int(cfg.learning.buffer_capacity))
@@ -131,6 +132,7 @@ class Agent:
         Args:
             num_episodes (int): Number of episodes to train the agent.
         """
+        self.env.save_env_specs()
 
         for episode in range(num_episodes):
             self.env.reset()
@@ -181,10 +183,7 @@ class Agent:
 
                 if self.step_counter % self.checkpoint_frequency == 0:
                     self.save_model(
-                        f"checkpoints/model_{self.env.mode}_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
-                    )
-                    self.load_model(
-                        f"checkpoints/model_{self.env.mode}_{int(self.step_counter//self.checkpoint_frequency)}.ckpt"
+                        f"{self.cfg.checkpoint_dir}/model_{self.env.mode}_{int(self.step_counter // self.checkpoint_frequency)}.ckpt"
                     )
 
             print(f"reward {episode_reward}")
@@ -197,6 +196,13 @@ class Agent:
                     "episode": episode,
                 }
             )
+
+    def eval(self):
+        """
+        Set the agent in eval mode
+        """
+        self.eval_mode = True
+        self.q_network.eval()
 
     def run_policy(self, num_episodes):
         """
@@ -231,14 +237,11 @@ class Agent:
         Returns:
             int: Action to take.
         """
-        if torch.rand(1).item() < self.epsilon:
-            action = torch.randint(0, self.env.action_dim, (1,)).item()
-            return action
-        else:
-            state = torch.FloatTensor(state).unsqueeze(0)
-            with torch.no_grad():
-                q_values = self.q_network(state)
-            return q_values.argmax().item()
+        if not self.eval_mode and torch.rand(1).item() < self.epsilon:
+            return torch.randint(0, self.env.action_dim, (1,)).item()
+        with torch.no_grad():
+            q_values = self.q_network(torch.FloatTensor(state).unsqueeze(0))
+        return q_values.argmax().item()
 
     def update_target_network(self):
         """
@@ -267,6 +270,5 @@ class Agent:
             path (str): Path to load the model from.
         """
         self.q_network.load_state_dict(torch.load(path))
-        self.q_network.eval()
         print(f"Model loaded from {path}.")
         return

@@ -17,7 +17,7 @@ def main(cfg: DictConfig):
     agent = Agent(cfg)
 
     if cfg.eval:
-        last_ckpt = get_last_ckpt(Path(cfg.checkpoint_dir))
+        last_ckpt = get_last_ckpt(Path(cfg.checkpoint_dir), mode=cfg.mode)
         print(last_ckpt)
         agent.load_model(last_ckpt)
         agent.eval()

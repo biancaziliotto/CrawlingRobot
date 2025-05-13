@@ -139,6 +139,7 @@ class Agent:
             state = self.env.compute_observations()
             done = False
             episode_reward = 0
+            episode_pos_reward = 0
 
             while not done:
                 # ---------- 1. INTERACT WITH ENV ----------
@@ -178,6 +179,7 @@ class Agent:
                 )
                 state = next_state
                 episode_reward += reward
+                episode_pos_reward += rwd_dict["pos_rwd"]
 
                 self.step_counter += 1
 
@@ -193,6 +195,7 @@ class Agent:
                     "episode_reward": episode_reward,
                     "episode_length": self.env.curr_step,
                     "episode_distance": self.env.cum_distance,
+                    "episode_pos_reward": episode_pos_reward,
                     "episode": episode,
                 }
             )

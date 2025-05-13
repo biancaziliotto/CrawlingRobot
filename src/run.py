@@ -18,7 +18,9 @@ def main(cfg: DictConfig):
 
     if cfg.eval:
         last_ckpt = get_last_ckpt(Path(cfg.checkpoint_dir), mode=cfg.mode)
-        print(last_ckpt)
+        if last_ckpt is None:
+            print("No checkpoint found in the specified directory. Exiting evaluation.")
+            return
         agent.load_model(last_ckpt)
         agent.eval()
         agent.env.load_env_specs(cfg.checkpoint_dir)

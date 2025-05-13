@@ -6,18 +6,20 @@ import torch.optim as optim
 class QNet(nn.Module):
     def __init__(self, input_size, output_size, cfg):
         super(QNet, self).__init__()
-        self.layers = nn.ModuleList()
 
-        self.layers.append(nn.Linear(input_size, cfg.qnet_units[0]))
-        self.layers.append(nn.ReLU())
+        widths = cfg.qnet_units
 
-        for l in range(len(cfg.qnet_units) - 1):
-            self.layers.append(nn.Linear(cfg.qnet_units[l], cfg.qnet_units[l + 1]))
-            self.layers.append(nn.ReLU())
+        layers = []
 
-        self.layers.append(nn.Linear(cfg.qnet_units[-1], output_size))
+        in_dim = input_size
+        for hidden_dim in widths:
+            layers.append(nn.Linear(in_dim, hidden_dim))
+            layers.append(nn.LayerNorm(hidden_dim))
+            layers.append(nn.ReLU())
+            in_dim = hidden_dim
+
+        layers.append(nn.Linear(in_dim, output_size))
+        self.net = nn.Sequential(*layers)
 
     def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
+        return self.net(x)

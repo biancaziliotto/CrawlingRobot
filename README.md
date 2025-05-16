@@ -15,7 +15,7 @@ The trained policy achieves an average speed of 0.5 m/s. To reproduce these resu
 
 ```bash
 poetry install
-poetry run mjpython run.py eval=True
+poetry run mjpython src/run.py eval=True
 ```
 
 Here we plot the recorded joint angles in the first 2 seconds of motion, after random initialization of the robot position. Notice that the gait cycle duration is smaller than 0.5 s.

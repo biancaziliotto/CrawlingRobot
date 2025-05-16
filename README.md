@@ -16,11 +16,7 @@ The episode length varies within a defined range: episodes are terminated earlie
 
 ## Run and evaluate policy
 
-
-
-https://github.com/user-attachments/assets/c21544fc-566d-4a74-8b62-598ef4e0c5a5
-
-
+https://github.com/user-attachments/assets/db03962c-0a66-4114-873b-ae08e8d68e18
 
 ![image](https://github.com/user-attachments/assets/a31d5e4d-b4c6-4159-80a3-f43687d429a2)
 

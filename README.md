@@ -3,9 +3,22 @@
 Course 'Neural Networks and Deep Learning' - Project 11 \
 _Use Q-learning to train an agent to control a crawling robot that has to learn how to move a 2-link finger to move forward. A positive reward is generated when moving forward and a negative reward is generated when moving backward or not moving_.
 
+https://github.com/user-attachments/assets/db03962c-0a66-4114-873b-ae08e8d68e18
+
 ## Physical system
 
 The physical system is simulated in MuJoCo (Multi-Joint dynamics with Contact). It consists of a two-link articulated mechanism anchored to a free-floating base. The base and links are connected through hinge joints, allowing for planar motion in a vertical plane. The system is designed to simulate interactions with the environment, including collisions and contact forces. Each joint is actuated by a torque motor, controlled via input signals.
+
+## Run and evaluate policy
+
+The trained policy achieves an average speed of 0.5 m/s. To reproduce these results, run the following commands in the root of the repository:
+
+```bash
+poetry install
+poetry run mjpython run.py eval=True
+```
+
+Here we plot the recorded joint angles in the first 2 seconds of motion, after random initialization of the robot position. Notice that the gait cycle duration is smaller than 0.5 s.
 
 ## Train policy
 
@@ -81,13 +94,6 @@ while not done:
 ```
 
 
-## Run and evaluate policy
-
-The trained policy achieves an average speed of 0.5 m/s.
-
-https://github.com/user-attachments/assets/db03962c-0a66-4114-873b-ae08e8d68e18
-
-Here we plot the recorded joint angles in the first 2 seconds of motion, after random initialization of the robot position. Notice that the gait cycle duration is smaller than 0.5 s.
 
 ![image](https://github.com/user-attachments/assets/a31d5e4d-b4c6-4159-80a3-f43687d429a2)
 

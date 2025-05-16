@@ -21,16 +21,16 @@ Episodes terminate when either the maximum length is reached or the average cumu
 ### Deep Q‑Learning algorithm
 
 1. **Neural Q‑Network**
-   A fully‑connected network maps the 12‑dimensional observation vector to Q‑values for the four discrete torque actions (‖τ‖ ∈ {−1, 0, +1} for each joint).
+   A fully‑connected network maps the n‑dimensional observation vector to Q‑values for the discrete torque actions for each joint.
 
    ```text
-   Input  →  FC(128) + ReLU  →  FC(128) + ReLU  →  FC(n_actions)
+   Observations  →  QNet  →  Q-Values(s,a)
    ```
 
-   Two identical copies are maintained:
+   Two copies are maintained:
 
    * **Online network Qθ** – updated every gradient step.
-   * **Target network Qθ‑** – synced with the online weights every *K<sub>target</sub>* environment steps.
+   * **Target network Qθ_target** – synced with the online weights every *K<sub>target</sub>* environment steps.
 
 2. **Experience Replay Buffer**
    Transitions *(s, a, r, s′, done)* are stored in a cyclic buffer (capacity = 100 k).

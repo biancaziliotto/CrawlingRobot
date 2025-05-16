@@ -24,7 +24,7 @@ Episodes terminate when either the maximum length is reached or the average cumu
    A fully‑connected network maps the n‑dimensional observation vector to Q‑values for the discrete torque actions for each joint.
 
    ```text
-   Observations  →  QNet  →  Q-Values(s,a)
+   Observations s  →  QNet  →  Q-Values(s,a)
    ```
 
    Two copies are maintained:

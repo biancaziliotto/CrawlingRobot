@@ -1,13 +1,21 @@
 import torch
 import torch.nn as nn
-
 import wandb
+
 from env import Env
 from utils.buffer import ReplayBuffer
 from utils.q_net import QNet
 
 
 class Agent:
+    """
+    DQN Agent for reinforcement learning.
+    This agent interacts with the environment, learns from experiences, and updates its policy.
+
+    Args:
+        cfg (dict): Configuration dictionary containing environment and agent parameters.
+    """
+
     def __init__(self, cfg):
         """
         Initialize agent.
@@ -102,15 +110,16 @@ class Agent:
                 # 1. Use target_network to find the max Q value for the next state
                 next_q = self.target_network(next_states).max(dim=1, keepdim=True)[0]
 
-            # 2. Build the target (same for both DQN and Double DQN)
+            # Build the target (same for both DQN and Double DQN)
             target_q = rewards + (1 - dones) * self.gamma * next_q
 
+        # Compute the current Q-values and calculate the loss
         current_q = self.q_network(states).gather(1, actions)
         loss = nn.functional.mse_loss(current_q, target_q)
 
+        # Perform a gradient descent step
         self.optimizer.zero_grad()
         loss.backward()
-        # print(loss.item())
         self.optimizer.step()
 
         wandb.log({"loss": loss.item()}, step=self.step_counter)
@@ -122,18 +131,20 @@ class Agent:
         Algorithm:
             repeat for each episode
                 repeat for each env step while not done
-                    • act → get (s,a,r,s′,done)
+                    • act → get (s,a,r,s',done)
                     • store in replay
                     • if replay large enough
-                        sample mini-batch
-                        gradient step
-                    • every K1 env steps → copy online → target
-                    • every K2 env steps → update epsilon
+                        sample mini-batch(es)
+                        gradient step(s)
+                    • every K1 env steps: copy online → target
+                    • every K2 env steps: update epsilon
 
         Args:
             num_episodes (int): Number of episodes to train the agent.
         """
-        self.env.save_env_specs()
+        self.env.save_physical_system()
+        self.eval_mode = False
+        self.q_network.train()
 
         for episode in range(num_episodes):
             self.episode = episode + self.episode_start_idx
@@ -187,10 +198,10 @@ class Agent:
 
                 if self.step_counter % self.checkpoint_frequency == 0:
                     self.save_model(
-                        f"{self.cfg.checkpoint_dir}/model_{self.env.mode}_{int(self.step_counter // self.checkpoint_frequency)}.ckpt"
+                        f"{self.cfg.checkpoint_dir}/model_{int(self.step_counter // self.checkpoint_frequency)}.ckpt"
                     )
 
-            print(f"reward {episode_reward}")
+            print(f"Episode {episode} finished with reward {episode_reward}")
             # ---------- LOGGING ----------
             wandb.log(
                 {
@@ -204,18 +215,20 @@ class Agent:
 
     def eval(self):
         """
-        Set the agent in eval mode
+        Set the agent in eval mode.
         """
         self.eval_mode = True
         self.q_network.eval()
 
     def run_policy(self, num_episodes):
         """
-        Can be used for evaluation or visualization.
+        Function used for evaluation or visualization.
+
+        Args:
+            num_episodes (int): Number of episodes to run the policy.
         """
         for episode in range(num_episodes):
             self.env.reset()
-            print(len(self.env.episode["actions"]))
             state = self.env.compute_observations()
             done = False
             episode_reward = 0
@@ -236,6 +249,7 @@ class Agent:
     def select_action(self, state):
         """
         Select an action using epsilon-greedy policy.
+        If in eval mode, select the action with the highest Q-value.
 
         Args:
             state (np.ndarray): Current state of the environment.
@@ -254,7 +268,6 @@ class Agent:
         Update the target network with the weights of the Q-network.
         """
         self.target_network.load_state_dict(self.q_network.state_dict())
-        # print("Target network updated.")
         return
 
     def save_model(self, path):

@@ -25,38 +25,20 @@ class Env(gym.Env):
         self.render_mode = "human"
 
         # Initialize physical system
-        self.mode = self.cfg.mode
-        assert self.mode in [
-            "forward",
-            "backward",
-        ], "Only forward and backward modes supported"
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.mj_data = mujoco.MjData(self.mj_model)
-
-        # Get the tip ids
-        self.tip_ids = [
-            self.mj_model.sensor(name).adr
-            for name in (
-                "floor_touch_1",
-                "floor_touch_2",
-                "floor_touch_3",
-                "floor_touch_4",
-                "floor_touch_5",
-                "floor_touch_6",
-                "floor_touch_7",
-                "floor_touch_8",
-            )
-        ]
 
         # Initialize the environment
         self.episode_id = 0
         self.deterministic_start = cfg.deterministic_start
         self.reset()
 
+        # Set termination conditions
         self.min_steps = int(cfg.min_steps)
         self.max_steps = int(cfg.max_steps)
         self.min_avg_distance_per_step = cfg.min_avg_distance_per_step
 
+        # Set the action space
         self.ctrl_low = self.mj_model.actuator_ctrlrange[:, 0]
         self.ctrl_high = self.mj_model.actuator_ctrlrange[:, 1]
 
@@ -69,6 +51,7 @@ class Env(gym.Env):
         # Input/Output for QNet
         self.state_dim = len(self.compute_observations())
         self.action_dim = self.levels**self.mj_model.nu
+
         print(f"state_dim = {self.state_dim}")
         print(f"action_dim = {self.action_dim}")
 
@@ -77,17 +60,14 @@ class Env(gym.Env):
         print("Environment initialized.")
         return
 
-    # TODO: This is called after initializing the environment, so it has no effect
-    # Also has no effect on the agent
-    def load_env_specs(self, ckpt_dir: str):
+    def load_physical_system(self, ckpt_dir: str):
         """
-        Load the MuJoCo model and cfg dictionary from the checkpoint directory.
+        Load the MuJoCo model from the checkpoint directory.
 
         Args:
             ckpt_dir (str): Path to the checkpoint directory.
         """
         xml_path = os.path.join(ckpt_dir, "env_model.xml")
-        cfg_path = os.path.join(ckpt_dir, "env_cfg.pkl")
 
         # Load the MuJoCo model
         self.mj_model = mujoco.MjModel.from_xml_path(xml_path)
@@ -95,34 +75,12 @@ class Env(gym.Env):
         self.ctrl_low = self.mj_model.actuator_ctrlrange[:, 0]
         self.ctrl_high = self.mj_model.actuator_ctrlrange[:, 1]
 
-        # Load the cfg dictionary
-        with open(cfg_path, "rb") as f:
-            cfg_dict = pickle.load(f)
-        self.cfg = OmegaConf.create(cfg_dict)
-
-        # Set the environment parameters
-        self.mode = self.cfg.mode
-        self.deterministic_start = self.cfg.deterministic_start
-        self.min_steps = int(self.cfg.min_steps)
-        self.max_steps = int(self.cfg.max_steps)
-        self.min_avg_distance_per_step = self.cfg.min_avg_distance_per_step
-        self.levels = self.cfg.action_levels
-        self.discretized_action = np.linspace(
-            self.ctrl_low[0], self.ctrl_high[0], num=self.levels
-        )
-        self.state_dim = len(self.compute_observations())
-        self.action_dim = self.levels**self.mj_model.nu
-        self.print_sensors()
-        print(f"state_dim = {self.state_dim}")
-        print(f"action_dim = {self.action_dim}")
-
-        print(f"Environment spec loaded from {ckpt_dir}")
-        print(f"cfg: {self.cfg}")
+        print(f"Physical system loaded from {ckpt_dir}")
         return
 
-    def save_env_specs(self):
+    def save_physical_system(self):
         """
-        Save the MuJoCo model and cfg dictionary to the checkpoint directory.
+        Save the MuJoCo model to the checkpoint directory.
         """
         ckpt_dir = self.cfg.checkpoint_dir
         os.makedirs(ckpt_dir, exist_ok=True)
@@ -131,12 +89,7 @@ class Env(gym.Env):
         xml_dst = os.path.join(ckpt_dir, "env_model.xml")
         shutil.copy2(self.cfg.xml_path, xml_dst)
 
-        # 2) dump the resolved cfg dict
-        cfg_dict = OmegaConf.to_container(self.cfg, resolve=True)
-        with open(os.path.join(ckpt_dir, "env_cfg.pkl"), "wb") as f:
-            pickle.dump(cfg_dict, f)
-
-        print(f"Environment spec saved to {ckpt_dir}")
+        print(f"Mujoco model saved to {ckpt_dir}")
 
     def print_sensors(self):
         """
@@ -161,7 +114,6 @@ class Env(gym.Env):
 
         # Initial position of the crawler
         self.mj_data.qpos = np.zeros(len(self.mj_data.qpos))
-        # self.mj_data.xpos[0] = 0
 
         if self.deterministic_start:
             self.mj_data.qpos[-2] = 0
@@ -217,28 +169,6 @@ class Env(gym.Env):
     def _get_sensordata(self):
         return self.mj_data.sensordata
 
-    def _get_qpos(self):
-        return self.mj_data.qpos
-
-    def _get_xpos(self):
-        return self.mj_data.xpos
-
-    def _compute_reset(self):
-        """
-        Check conditions to truncate episode.
-        """
-        pass
-
-    def _is_tip_touching(self):
-        """
-        Check if the tip of the robot's secon link is touching the ground.
-
-        Returns:
-            bool: True if the tip is touching the ground, False otherwise.
-        """
-        tip_touch = np.any(self.mj_data.sensordata[self.tip_ids] > 0.0)
-        return tip_touch
-
     def compute_observations(self):
         """
         Compute the observations.
@@ -259,7 +189,7 @@ class Env(gym.Env):
         # qvel = [ vx vy vz  wx wy wz  q'_joint1 q'_joint2 ... ]
         base_vel = self.mj_data.qvel[:3].copy()  # vx vy vz
         base_ang_vel = self.mj_data.qvel[3:6].copy()  # wx wy wz
-        joint_qvel = self.mj_data.qvel[6:].copy()
+        joint_qvel = self.mj_data.qvel[6:].copy()  # q'_joint1 q'_joint2 ...
 
         # Take only the z position of the base
         base_z = base_pos[2:3]
@@ -297,20 +227,16 @@ class Env(gym.Env):
 
     def _get_position_reward(self):
         curr_x = float(self.mj_data.qpos[0].copy())
-        # print(curr_x)
+
         # Get the distance traveled since the last step in the desired direction
-        if self.mode == "forward":
-            distance = curr_x - self.previous_xpos
-        elif self.mode == "backward":
-            distance = self.previous_xpos - curr_x
+        distance = curr_x - self.previous_xpos
         self.cum_distance += distance
         self.previous_xpos = curr_x
 
         # Calculate the reward based on the distance traveled
         if distance > 0:
             rwd = (
-                self.cfg.w_pos_rwd
-                * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
+                self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
                 # * self._is_tip_touching()
             )
         else:
@@ -319,14 +245,6 @@ class Env(gym.Env):
             )
 
         return rwd
-
-    def _get_airborne_penalty(self) -> float:
-        """
-        Negative reward if the base COM rises above a threshold height.
-        """
-        body_z = float(self.mj_data.qpos[2])
-        airborne = body_z > self.cfg.airborne_z_thresh
-        return -self.cfg.airborne_penalty if airborne else 0.0
 
     def _get_upright_reward(self):
         """
@@ -344,62 +262,28 @@ class Env(gym.Env):
         euler = r.as_euler("xyz", degrees=False)
         return (1 - abs(euler[1] / np.pi)) * self.cfg.w_upright_rwd
 
-    def _get_energy_reward(self, action):
-        """
-        Returns the energy reward based on the action taken.
-        The reward is negative if the action is not zero.
-
-        Returns:
-            float: Energy reward.
-        """
-        energy_rwd = -self.cfg.w_energy_rwd * np.square(action).sum()
-        return energy_rwd
-
-    def _get_smoothness_penalty(self, action: np.ndarray) -> float:
-        """
-        Negative reward proportional to the squared change in control
-        (i.e. sum of (u_t - u_{t-1})^2). Encourages gradual torque changes.
-        """
-        delta_u = action - self.previous_action
-
-        # squared L2 norm of the change
-        sq_change = np.square(delta_u).sum()
-
-        return -self.cfg.w_smooth * sq_change
-
     def compute_reward(self, action):
-        """
-        Returns a scalar value
-        Positive reward: the robot moved forward
-        Negative reward: the robot moved backward
-        """
+        """ """
         pos_rwd = self._get_position_reward()
-        # energy_rwd = self._get_energy_reward(action)
         upright_rwd = self._get_upright_reward()
-        # air_penalty = self._get_airborne_penalty()
-        # smoothness_penalty = self._get_smoothness_penalty(action)
 
-        rwd = (
-            +pos_rwd
-            # + energy_rwd
-            + upright_rwd
-            # + air_penalty
-            # + smoothness_penalty
-            # + self.cfg.time_penalty
-        )
+        rwd = pos_rwd + upright_rwd
 
         rwd_info = {
             "pos_rwd": pos_rwd,
-            # "energy_rwd": energy_rwd,
             "upright_rwd": upright_rwd,
-            # "air_penalty": air_penalty,
-            # "smoothness_penalty": smoothness_penalty,
             "rwd": rwd,
         }
 
         return rwd, rwd_info
 
     def end_episode(self):
+        """
+        Check if the episode is done.
+        The episode is done if:
+            - The maximum number of steps is reached
+            - The minimum average distance per step is not reached
+        """
         done = False
         if (
             self.curr_step > self.min_steps

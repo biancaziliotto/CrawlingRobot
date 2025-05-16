@@ -4,6 +4,17 @@ import torch.optim as optim
 
 
 class QNet(nn.Module):
+    """
+    Q-Network for DQN agent.
+
+    This net takes as input the state of the environment and outputs Q-values for each action.
+
+    Args:
+        input_size (int): Size of the input state.
+        output_size (int): Size of the output action space.
+        cfg (dict): Configuration dictionary containing network parameters.
+    """
+
     def __init__(self, input_size, output_size, cfg):
         super(QNet, self).__init__()
 

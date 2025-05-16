@@ -1,19 +1,27 @@
 defaults:
 - learning: learning_params
 
+# Mujoco parameters
 xml_path: "data/crawling_robot.xml"
+
+# Network parameters
 qnet_units: [512,256,128]
 
+# Logging parameters
 project: crawling_robot
 exp_name: experimentlargeforces
-resume_str: qg49mkpz
+resume_str: null
 
+# Evaluation parameters
 eval: True
+num_episodes_eval: 10
 
+# Checkpointing
 model_id: ourhope4
 checkpoint_dir: checkpoints/${model_id}
 checkpoint_frequency: 1e5
 
+# Environment parameters
 num_episodes: 1e6
 min_steps: 1000
 max_steps: 100000
@@ -21,22 +29,11 @@ min_avg_distance_per_step: 0.0001
 
 deterministic_start: False
 
+# Action space dimension
 action_levels: 5
 
+# Reward parameters (position, stance)
 w_pos_rwd: 0.5
 k_pos_rwd: 100
-# w_upright_rwd: 0.1
-# w_energy_rwd: 1e-3
-# w_smooth: 0.001
-# airborne_penalty: 0.05
-# airborne_z_thresh: 0.1
+
 w_upright_rwd: 0.5
-w_energy_rwd: 0
-w_smooth: 0
-airborne_penalty: 0
-airborne_z_thresh: 0
-
-
-time_penalty: 0.001
-
-mode: "forward"

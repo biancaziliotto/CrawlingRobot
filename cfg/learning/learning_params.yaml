@@ -1,15 +1,21 @@
+# Optimization parameters
 lr: 5e-4
-# epsilon: 0.5
+warmup_steps: 1e5
+batch_size: 32
+
+# Exploration parameters
 epsilon: 0.01
 epsilon_decay: 0.9995
 epsilon_update_steps: 100
-# epsilon_min: 0.01
 epsilon_min: 0
+
+# Q-learning parameters
+double_dqn: True
 buffer_capacity: 5e5
-warmup_steps: 1e5
-batch_size: 32
 gamma: 0.99
+
+# Network update schedules
 update_target_steps: 1e5
 update_steps: 4
 num_training_steps: 1
-double_dqn: True
+

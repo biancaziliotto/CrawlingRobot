@@ -67,33 +67,9 @@ Episodes terminate when either the maximum length is reached or the average cumu
    
 ### Code reference
 
-The core of the training logic is implemented in [`agent.py`](./agent.py):
+The core of the training logic is implemented in [`agent.py`](./src/agent.py):
 
-```python
-while not done:
-    # 1. INTERACT WITH ENV
-    action = self.select_action(state)
-    next_state, reward, done, info = self.env.step(action)
-
-    # 2. STORE TRANSITION
-    self.replay_buffer.add(state, action, reward, next_state, done)
-
-    # 3. LEARN (after warm‑up)
-    if len(self.replay_buffer) >= self.warmup_steps:
-        if self.step_counter % self.update_steps == 0:
-            for _ in range(self.num_training_steps):
-                self.train_step()
-
-    # 4. TARGET NETWORK SYNC
-    if self.step_counter % self.update_target_steps == 0:
-        self.update_target_network()
-
-    # 5. UPDATE EXPLORATION
-    if self.step_counter % self.epsilon_update_steps == 0:
-        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
-```
-
-
+https://github.com/biancaziliotto/CrawlingRobot/blob/7f187714967b0026e6f4a9225166f33a1f939f3e/src/agent.py#L148-L196
 
 ![image](https://github.com/user-attachments/assets/a31d5e4d-b4c6-4159-80a3-f43687d429a2)
 

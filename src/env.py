@@ -161,7 +161,7 @@ class Env(gym.Env):
 
         # Initial position of the crawler
         self.mj_data.qpos = np.zeros(len(self.mj_data.qpos))
-        self.mj_data.xpos[0] = 0
+        # self.mj_data.xpos[0] = 0
 
         if self.deterministic_start:
             self.mj_data.qpos[-2] = 0
@@ -178,7 +178,11 @@ class Env(gym.Env):
         # Reset "previous" variables
         self.curr_step = 0
         self.cum_distance = 0
-        self.episode = {"initial_pqos": self.mj_data.qpos.copy(), "actions": []}
+        self.episode = {
+            "initial_qpos": self.mj_data.qpos.copy(),
+            "actions": [],
+            "qpos": [],
+        }
         self.episode_id += 1
         return
 
@@ -187,20 +191,25 @@ class Env(gym.Env):
         Update the rendering scene.
         """
         curr_step = 0
-        self.mj_data.qpos = self.episode["initial_pqos"]
+        self.cum_distance = 0
+        self.mj_data.qpos = self.episode["initial_qpos"]
+        self.previous_xpos = float(self.mj_data.qpos[0])
         mujoco.mj_kinematics(self.mj_model, self.mj_data)
-
         with mujoco.viewer.launch_passive(self.mj_model, self.mj_data) as self.viewer:
             self.viewer.sync()
             time.sleep(1)
-            while curr_step < len(self.episode["actions"]):
+            while curr_step < len(self.episode["qpos"]):
                 action = self.episode["actions"][curr_step]
                 self.mj_data.ctrl[:] = action
-                mujoco.mj_step(self.mj_model, self.mj_data)
+                qpos = self.episode["qpos"][curr_step]
+                self.mj_data.qpos = qpos
+                mujoco.mj_kinematics(self.mj_model, self.mj_data)
 
-                self._get_upright_reward()
+                obs = self.compute_observations()
+                self._get_position_reward()
+
                 self.viewer.sync()
-                time.sleep(0.01)
+                time.sleep(0.005)
                 curr_step += 1
             self.viewer.close()
         return
@@ -287,8 +296,8 @@ class Env(gym.Env):
         return obs
 
     def _get_position_reward(self):
-        curr_x = float(self.mj_data.qpos[0])
-
+        curr_x = float(self.mj_data.qpos[0].copy())
+        # print(curr_x)
         # Get the distance traveled since the last step in the desired direction
         if self.mode == "forward":
             distance = curr_x - self.previous_xpos
@@ -302,7 +311,7 @@ class Env(gym.Env):
             rwd = (
                 self.cfg.w_pos_rwd
                 * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
-                * self._is_tip_touching()
+                # * self._is_tip_touching()
             )
         else:
             rwd = self.cfg.w_pos_rwd * (
@@ -365,26 +374,26 @@ class Env(gym.Env):
         Negative reward: the robot moved backward
         """
         pos_rwd = self._get_position_reward()
-        energy_rwd = self._get_energy_reward(action)
+        # energy_rwd = self._get_energy_reward(action)
         upright_rwd = self._get_upright_reward()
-        air_penalty = self._get_airborne_penalty()
-        smoothness_penalty = self._get_smoothness_penalty(action)
+        # air_penalty = self._get_airborne_penalty()
+        # smoothness_penalty = self._get_smoothness_penalty(action)
 
         rwd = (
             +pos_rwd
-            + energy_rwd
+            # + energy_rwd
             + upright_rwd
-            + air_penalty
-            + smoothness_penalty
-            + self.cfg.time_penalty
+            # + air_penalty
+            # + smoothness_penalty
+            # + self.cfg.time_penalty
         )
 
         rwd_info = {
             "pos_rwd": pos_rwd,
-            "energy_rwd": energy_rwd,
+            # "energy_rwd": energy_rwd,
             "upright_rwd": upright_rwd,
-            "air_penalty": air_penalty,
-            "smoothness_penalty": smoothness_penalty,
+            # "air_penalty": air_penalty,
+            # "smoothness_penalty": smoothness_penalty,
             "rwd": rwd,
         }
 
@@ -459,5 +468,6 @@ class Env(gym.Env):
         done = self.end_episode()
 
         self.episode["actions"].append(action)
+        self.episode["qpos"].append(self.mj_data.qpos.copy())
 
         return obs, rwd, done, rwd_dict

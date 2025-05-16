@@ -2,6 +2,6 @@ outputs/
 __pycache__/
 poetry.lock
 wandb/
-checkpoints/
-
+analysis.ipynb
 MUJOCO_LOG**
+recorded_mechanics.pkl

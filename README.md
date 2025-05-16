@@ -9,11 +9,78 @@ The physical system is simulated in MuJoCo (Multi-Joint dynamics with Contact). 
 
 ## Train policy
 
-The model is trained with Q-Learning. The reward function combines:
-- A position reward term, positive for forward movement and negative for backward movement.
-- An upright reward term, penalizing rotations of the base.\
+The model is trained with **Deep Q‑Learning (DQN)**.
 
-The episode length varies within a defined range: episodes are terminated earlier if the average speed is smaller than a minimum threshold.
+### Reward function
+
+* **Position reward** – positive for forward movement and negative for backward movement.
+* **Upright reward** – penalizes rotations of the base, to avoid the crawler tripping.
+
+Episodes terminate when either the maximum length is reached or the average cumulative distance falls below a minimum threshold.
+
+### Deep Q‑Learning algorithm
+
+1. **Neural Q‑Network**
+   A fully‑connected network maps the 12‑dimensional observation vector to Q‑values for the four discrete torque actions (‖τ‖ ∈ {−1, 0, +1} for each joint).
+
+   ```text
+   Input  →  FC(128) + ReLU  →  FC(128) + ReLU  →  FC(n_actions)
+   ```
+
+   Two identical copies are maintained:
+
+   * **Online network Qθ** – updated every gradient step.
+   * **Target network Qθ‑** – synced with the online weights every *K<sub>target</sub>* environment steps.
+
+2. **Experience Replay Buffer**
+   Transitions *(s, a, r, s′, done)* are stored in a cyclic buffer (capacity = 100 k).
+   Sampling mini‑batches breaks temporal correlations and stabilizes learning.
+
+3. **ε‑greedy Exploration**
+
+   * Random actions with decaying probability to promote exploration in the initial phases of the training.
+
+4. **DQN vs Double DQN update**
+
+During learning the one‑step TD target is computed with one of two schemes:
+
+* **DQN** – `y = r + γ * max_a' Q_target(s', a') * (1 – done)`
+* **Double DQN** –
+
+  1. `a_max = argmax_a' Q_online(s', a')`
+  2. `y = r + γ * Q_target(s', a_max) * (1 – done)`
+
+Enable Double DQN by setting `cfg.use_double_dqn = True`; otherwise the vanilla DQN target is used.
+
+   
+### Code reference
+
+The core of the training logic is implemented in [`agent.py`](./agent.py):
+
+```python
+while not done:
+    # 1. INTERACT WITH ENV
+    action = self.select_action(state)
+    next_state, reward, done, info = self.env.step(action)
+
+    # 2. STORE TRANSITION
+    self.replay_buffer.add(state, action, reward, next_state, done)
+
+    # 3. LEARN (after warm‑up)
+    if len(self.replay_buffer) >= self.warmup_steps:
+        if self.step_counter % self.update_steps == 0:
+            for _ in range(self.num_training_steps):
+                self.train_step()
+
+    # 4. TARGET NETWORK SYNC
+    if self.step_counter % self.update_target_steps == 0:
+        self.update_target_network()
+
+    # 5. UPDATE EXPLORATION
+    if self.step_counter % self.epsilon_update_steps == 0:
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+```
+
 
 ## Run and evaluate policy
 

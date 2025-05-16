@@ -1,5 +1,4 @@
 import os
-import pickle
 import shutil
 import time
 from typing import Optional
@@ -8,7 +7,6 @@ import gymnasium as gym
 import mujoco
 import mujoco.viewer
 import numpy as np
-from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation as R
 
 
@@ -157,7 +155,7 @@ class Env(gym.Env):
                 self.mj_data.qpos = qpos
                 mujoco.mj_kinematics(self.mj_model, self.mj_data)
 
-                obs = self.compute_observations()
+                # Call reward function to update the cumulative distance
                 self._get_position_reward()
 
                 self.viewer.sync()

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import wandb
 
+import wandb
 from env import Env
 from utils.buffer import ReplayBuffer
 from utils.q_net import QNet
@@ -63,7 +63,6 @@ class Agent:
 
         # Counter for updating the target network
         self.step_counter = 1
-        self.episode_start_idx = 0
 
         print("Agent initialized.")
         return
@@ -147,7 +146,7 @@ class Agent:
         self.q_network.train()
 
         for episode in range(num_episodes):
-            self.episode = episode + self.episode_start_idx
+            self.episode = episode
             self.env.reset()
             state = self.env.compute_observations()
             done = False

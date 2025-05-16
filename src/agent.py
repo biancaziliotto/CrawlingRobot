@@ -55,6 +55,7 @@ class Agent:
 
         # Counter for updating the target network
         self.step_counter = 1
+        self.episode_start_idx = 0
 
         print("Agent initialized.")
         return
@@ -135,6 +136,7 @@ class Agent:
         self.env.save_env_specs()
 
         for episode in range(num_episodes):
+            self.episode = episode + self.episode_start_idx
             self.env.reset()
             state = self.env.compute_observations()
             done = False
@@ -196,7 +198,7 @@ class Agent:
                     "episode_length": self.env.curr_step,
                     "episode_distance": self.env.cum_distance,
                     "episode_pos_reward": episode_pos_reward,
-                    "episode": episode,
+                    "episode": self.episode,
                 }
             )
 
@@ -213,6 +215,7 @@ class Agent:
         """
         for episode in range(num_episodes):
             self.env.reset()
+            print(len(self.env.episode["actions"]))
             state = self.env.compute_observations()
             done = False
             episode_reward = 0

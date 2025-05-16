@@ -38,6 +38,16 @@ def main(cfg: DictConfig):
 
     wandb.log({"config": OmegaConf.to_container(cfg, resolve=True)})
 
+    last_ckpt = get_last_ckpt(Path(cfg.checkpoint_dir), mode=cfg.mode)
+    if last_ckpt is None:
+        print("No checkpoint found in the specified directory. Exiting evaluation.")
+        return
+    print(last_ckpt)
+    agent.load_model(last_ckpt)
+    agent.env.load_env_specs(cfg.checkpoint_dir)
+    agent.step_counter = 25819694
+    agent.episode_start_idx = 836
+    agent.epsilon = 0
     agent.train(num_episodes=int(cfg.num_episodes))
 
 

@@ -16,7 +16,11 @@ The episode length varies within a defined range: episodes are terminated earlie
 
 ## Run and evaluate policy
 
+The trained policy achieves an average speed of 0.5 m/s.
+
 https://github.com/user-attachments/assets/db03962c-0a66-4114-873b-ae08e8d68e18
+
+Here we plot the recorded joint angles in the first 2 seconds of motion, after random initialization of the robot position. Notice that the gait cycle duration is around 0.5 s.
 
 ![image](https://github.com/user-attachments/assets/a31d5e4d-b4c6-4159-80a3-f43687d429a2)
 

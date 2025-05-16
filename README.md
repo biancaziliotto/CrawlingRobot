@@ -42,15 +42,14 @@ Episodes terminate when either the maximum length is reached or the average cumu
 
 4. **DQN vs Double DQN update**
 
-During learning the one‑step TD target is computed with one of two schemes:
+   * During learning the one‑step TD target is computed with one of two schemes:
 
-* **DQN** – `y = r + γ * max_a' Q_target(s', a') * (1 – done)`
+* **DQN**
+   * `y = r + γ * max_a' Q_target(s', a') * (1 – done)`
 * **Double DQN** –
 
   1. `a_max = argmax_a' Q_online(s', a')`
   2. `y = r + γ * Q_target(s', a_max) * (1 – done)`
-
-Enable Double DQN by setting `cfg.use_double_dqn = True`; otherwise the vanilla DQN target is used.
 
    
 ### Code reference

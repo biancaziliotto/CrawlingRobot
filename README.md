@@ -11,7 +11,7 @@ The physical system is simulated in MuJoCo (Multi-Joint dynamics with Contact). 
 
 The model is trained with Q-Learning. The reward function combines:
 - A position reward term, positive for forward movement and negative for backward movement.
-- An upright reward term, penalizing rotations of the base. \ 
+- An upright reward term, penalizing rotations of the base.\
 The episode length varies within a defined range: episodes are terminated earlier if the average speed is smaller than a minimum threshold.
 
 ## Run and evaluate policy

@@ -71,6 +71,8 @@ The core of the training logic is implemented in [`agent.py`](./src/agent.py):
 
 https://github.com/biancaziliotto/CrawlingRobot/blob/7f187714967b0026e6f4a9225166f33a1f939f3e/src/agent.py#L148-L196
 
+Here we plot the recorded joint angles in the first 2 seconds of motion, after random initialization of the robot position. Notice that the gait cycle duration is around 0.5 s.
+
 ![image](https://github.com/user-attachments/assets/a31d5e4d-b4c6-4159-80a3-f43687d429a2)
 
 

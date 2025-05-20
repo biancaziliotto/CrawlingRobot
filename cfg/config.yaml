@@ -1,5 +1,6 @@
 defaults:
-- learning: learning_params
+  - _self_
+  - learning: learning_params
 
 # Mujoco parameters
 xml_path: "data/crawling_robot.xml"

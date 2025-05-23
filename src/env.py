@@ -21,6 +21,7 @@ class Env(gym.Env):
         """
         self.cfg = cfg
         self.render_mode = "human"
+        self.mode = self.cfg.mode
 
         # Initialize physical system
         self.mj_model = mujoco.MjModel.from_xml_path(cfg.xml_path)
@@ -227,14 +228,18 @@ class Env(gym.Env):
         curr_x = float(self.mj_data.qpos[0].copy())
 
         # Get the distance traveled since the last step in the desired direction
-        distance = curr_x - self.previous_xpos
+        if self.mode == "forward":
+            distance = curr_x - self.previous_xpos
+        elif self.mode == "backward":
+            distance = self.previous_xpos - curr_x
         self.cum_distance += distance
         self.previous_xpos = curr_x
 
         # Calculate the reward based on the distance traveled
         if distance > 0:
             rwd = (
-                self.cfg.w_pos_rwd * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
+                self.cfg.w_pos_rwd
+                * (1 - np.exp(-self.cfg.k_pos_rwd * distance))
                 # * self._is_tip_touching()
             )
         else:

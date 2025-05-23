@@ -48,9 +48,9 @@
 
     <asset>
         <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1="0.8 0.8 0.8" rgb2="0.6 0.6 0.6"/>
-        <material name="grid_material" texture="grid" texrepeat="10 10"/>
-        <!-- <texture name="floor_tex" type="2d" file="textures/wood.png"/>
-        <material name="wood_floor" texture="floor_tex" texrepeat="10 10" specular="0.3" shininess="0.5"/> -->
+        <material name="grid_material" texture="grid" texrepeat="100 100"/>
+        <!-- <texture name="floor_tex" type="2d" file="../../data/textures/wood.png"/>
+        <material name="wood_floor" texture="floor_tex" texrepeat="100 100" specular="0.3" shininess="0.5"/> -->
     </asset>
 
     <worldbody>
@@ -112,9 +112,9 @@
         </body>
 
         <!-- Floor geometry with friction and solimp to avoid penetration -->
-        <geom name="floor" type="plane" pos="0 0 -0.05" size="1000 1000 0.1" material="grid_material" friction="0.5 0.5 0.3" solimp="0.9 0.99 0.001" solref="0.002 1" contype="1" conaffinity="1"/>
+        <geom name="floor" type="plane" pos="0 0 -0.05" size="10 10 0.1" material="grid_material" friction="0.5 0.5 0.3" solimp="0.9 0.99 0.001" solref="0.002 1" contype="1" conaffinity="1"/>
 
-        <!-- <geom name="floor" type="plane" pos="0 0 -0.05" size="100 100 0.1" material="wood_floor"
+        <!-- <geom name="floor" type="plane" pos="0 0 -0.05" size="20 20 0.1" material="wood_floor"
         friction="0.5 0.5 0.3" solimp="0.9 0.99 0.001" solref="0.002 1" contype="1" conaffinity="1"/> -->
 
     </worldbody>

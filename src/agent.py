@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import wandb
 
+import wandb
 from env import Env
 from utils.buffer import ReplayBuffer
 from utils.q_net import QNet
@@ -197,9 +197,7 @@ class Agent:
                 self.step_counter += 1
 
                 if self.step_counter % self.checkpoint_frequency == 0:
-                    self.save_model(
-                        f"{self.cfg.checkpoint_dir}/model_{int(self.step_counter // self.checkpoint_frequency)}.ckpt"
-                    )
+                    self.save_model(f"{self.cfg.checkpoint_dir}/model_0.ckpt")
 
             print(f"Episode {episode} finished with reward {episode_reward}")
             # ---------- LOGGING ----------

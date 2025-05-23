@@ -13,11 +13,11 @@ exp_name: experimentlargeforces
 resume_str: null
 
 # Evaluation parameters
-eval: True
+eval: False
 num_episodes_eval: 10
 
 # Checkpointing
-model_id: ourhope4
+model_id: crawling_backward
 checkpoint_dir: checkpoints/${model_id}
 checkpoint_frequency: 1e5
 
@@ -34,6 +34,8 @@ action_levels: 5
 
 # Reward parameters (position, stance)
 w_pos_rwd: 0.5
-k_pos_rwd: 100
+k_pos_rwd: 1000
 
 w_upright_rwd: 0.5
+
+mode: "backward"

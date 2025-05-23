@@ -5,3 +5,4 @@ wandb/
 analysis.ipynb
 MUJOCO_LOG**
 recorded_mechanics.pkl
+checkpoints/
